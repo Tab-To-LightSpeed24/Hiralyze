@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { MadeWithDyad } from "@/components/made-with-dyad";
 import ResumeUploadForm from "@/components/ResumeUploadForm";
 import CandidateList from "@/components/CandidateList";
 import { Candidate } from "@/types";
@@ -46,7 +45,6 @@ const Index = () => {
           </>
         )}
       </div>
-      <MadeWithDyad />
     </div>
   );
 };
