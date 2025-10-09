@@ -55,6 +55,7 @@ const Index = () => {
     let scoreReasoning: string[] = [];
 
     const resumeContentLower = resumeContent.toLowerCase();
+    const jobDescriptionLower = jobDescription.toLowerCase(); // Added for easier comparison
 
     // --- Simulate JD Eligibility Criteria Parsing ---
     const jdCriteria = {
@@ -62,11 +63,11 @@ const Index = () => {
       min12thPercentage: parseFloat(jobDescription.match(/12th grade min (\d+\.?\d*)%/)?.at(1) || '0'),
       minUGCGPA: parseFloat(jobDescription.match(/UG min CGPA (\d+\.?\d*)/)?.at(1) || '0'),
       minPGCGPA: parseFloat(jobDescription.match(/PG min CGPA (\d+\.?\d*)/)?.at(1) || '0'),
-      requiresEngineeringDegree: jobDescription.toLowerCase().includes("engineering degree"),
-      dotNetExpertise: jobDescription.toLowerCase().includes(".net expertise"),
-      zeroExperienceCandidatesOnly: jobDescription.toLowerCase().includes("zero experience candidates only"),
-      communicationSkillsRequired: jobDescription.toLowerCase().includes("excellent written and verbal communication skills"),
-      teamworkSkillsRequired: jobDescription.toLowerCase().includes("ability to collaborate and work well in team environments"),
+      requiresEngineeringDegree: jobDescriptionLower.includes("engineering degree"),
+      dotNetExpertise: jobDescriptionLower.includes(".net expertise"),
+      zeroExperienceCandidatesOnly: jobDescriptionLower.includes("zero experience candidates only"),
+      communicationSkillsRequired: jobDescriptionLower.includes("excellent written and verbal communication skills"),
+      teamworkSkillsRequired: jobDescriptionLower.includes("ability to collaborate and work well in team environments"),
       requiredSkillsKeywords: (jobDescription.match(/(?:skills|requirements|proficient in):?\s*([\w\s,.-]+)/i)?.[1]?.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)) || [],
       requiredExperienceKeywords: (jobDescription.match(/(?:experience|responsibilities):?\s*([\w\s,.-]+)/i)?.[1]?.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)) || [],
     };
@@ -122,7 +123,54 @@ const Index = () => {
     if (experience.length === 0) experience.push("No specific experience identified");
 
 
-    // --- Scoring Logic ---
+    // --- New Strict Shortlisting Logic ---
+    let isShortlisted = true;
+    let missingKeywords: string[] = [];
+    let jdPrimaryRoleKeywords: string[] = [];
+    let jdPrimaryRole: string | undefined;
+
+    // Try to infer the primary role from the job description
+    for (const role in ROLE_KEYWORDS) {
+      if (jobDescriptionLower.includes(role.toLowerCase())) {
+        jdPrimaryRole = role;
+        jdPrimaryRoleKeywords = ROLE_KEYWORDS[role].map(k => k.toLowerCase());
+        break; // Found a direct match, use it
+      }
+    }
+
+    if (jdPrimaryRole && jdPrimaryRoleKeywords.length > 0) {
+      const candidateCapabilitiesLower = new Set<string>();
+      skills.forEach(s => candidateCapabilitiesLower.add(s.toLowerCase()));
+      experience.forEach(exp => exp.split(/\s*,\s*|\s+/).forEach(word => candidateCapabilitiesLower.add(word.toLowerCase())));
+
+      for (const requiredKeyword of jdPrimaryRoleKeywords) {
+        if (!candidateCapabilitiesLower.has(requiredKeyword)) {
+          missingKeywords.push(requiredKeyword);
+          isShortlisted = false;
+        }
+      }
+    }
+
+    if (!isShortlisted) {
+      matchScore = 1; // Set to minimum score if not shortlisted
+      justification = `This candidate, ${candidateName}, received a score of ${matchScore}/10. Reasoning: Candidate is NOT shortlisted because the job description for '${jdPrimaryRole || "unspecified role"}' requires the following critical keywords that were NOT found in the resume: ${missingKeywords.join(", ")}.`;
+      // Skip further scoring as the candidate is already not shortlisted
+      return {
+        id: `cand-${Date.now()}-${Math.random()}`,
+        name: candidateName,
+        email: `${candidateName.toLowerCase()}@example.com`,
+        skills: skills,
+        experience: experience,
+        education: education,
+        matchScore: matchScore,
+        justification: justification,
+        resumeFileName: resumeFileName,
+        suggestedRole: suggestedRole, // Still suggest a role based on their skills
+      };
+    }
+
+
+    // --- Scoring Logic (only if shortlisted) ---
     let baseScore = 5; // Start with a neutral score
 
     // 1. Education Eligibility & Scoring
