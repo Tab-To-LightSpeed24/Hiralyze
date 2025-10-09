@@ -133,6 +133,7 @@ const Index = () => {
     let missingKeywords: string[] = [];
     let jdPrimaryRoleKeywords: string[] = [];
     let jdPrimaryRole: string | undefined;
+    let matchedJdKeywordsCount = 0; // Initialize here
 
     // Try to infer the primary role from the job description
     for (const role in ROLE_KEYWORDS) {
@@ -148,7 +149,6 @@ const Index = () => {
       skills.forEach(s => candidateCapabilitiesLower.add(s.toLowerCase()));
       experience.forEach(exp => exp.split(/\s*,\s*|\s+/).forEach(word => candidateCapabilitiesLower.add(word.toLowerCase())));
 
-      let matchedJdKeywordsCount = 0;
       for (const requiredKeyword of jdPrimaryRoleKeywords) {
         if (candidateCapabilitiesLower.has(requiredKeyword)) {
           matchedJdKeywordsCount++;
