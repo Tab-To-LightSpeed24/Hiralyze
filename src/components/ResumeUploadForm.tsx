@@ -47,8 +47,11 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes })
     setIsDragging(false);
 
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const newFiles = Array.from(e.dataTransfer.files).filter(file => 
-        file.type === 'application/pdf' || file.type === 'text/plain'
+      const newFiles = Array.from(e.dataTransfer.files).filter(file =>
+        file.type === 'application/pdf' ||
+        file.type === 'text/plain' ||
+        file.type === 'application/msword' || // .doc
+        file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' // .docx
       );
       setResumeFiles(prevFiles => [...prevFiles, ...newFiles]);
       e.dataTransfer.clearData();
@@ -107,7 +110,7 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes })
             </motion.div>
 
             <motion.div variants={itemVariants} className="grid w-full items-center gap-1.5">
-              <Label htmlFor="resumes">Upload Resumes (PDF/Text)</Label>
+              <Label htmlFor="resumes">Upload Resumes (PDF/Text/Word)</Label>
               <div
                 className={`border-2 border-dashed rounded-md p-6 text-center cursor-pointer transition-colors ${
                   isDragging ? "border-primary bg-primary/10" : "border-muted-foreground/50 hover:border-primary"
@@ -123,7 +126,7 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes })
                 <Input
                   id="resumes"
                   type="file"
-                  accept=".pdf,.txt"
+                  accept=".pdf,.txt,.doc,.docx"
                   multiple
                   onChange={handleFileChange}
                   className="hidden" // Hide the default input
