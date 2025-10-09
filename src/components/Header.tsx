@@ -21,7 +21,12 @@ const Header: React.FC = () => {
           Hiralyze
         </motion.h1>
       </Link>
-      <LogoutButton />
+      <nav className="flex items-center space-x-4">
+        <Link to="/about" className="text-muted-foreground hover:text-primary transition-colors">
+          About Scoring
+        </Link>
+        <LogoutButton />
+      </nav>
     </motion.header>
   );
 };

@@ -50,6 +50,12 @@ const CandidateCard: React.FC<CandidateCardProps> = ({ candidate, index }) => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 flex-grow">
+          {candidate.suggestedRole && (
+            <div>
+              <h4 className="font-semibold mb-1">Suggested Role:</h4>
+              <Badge variant="default" className="text-base px-3 py-1">{candidate.suggestedRole}</Badge>
+            </div>
+          )}
           <div>
             <h4 className="font-semibold mb-1">Skills:</h4>
             <div className="flex flex-wrap gap-2">

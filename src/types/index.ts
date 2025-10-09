@@ -8,6 +8,7 @@ export interface Candidate {
   matchScore: number;
   justification: string;
   resumeFileName: string;
+  suggestedRole?: string; // New field for job role suggestions
 }
 
 export interface JobDescription {
