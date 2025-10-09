@@ -28,7 +28,7 @@ const ROLE_KEYWORDS: { [key: string]: string[] } = {
   "Business Analyst": ["Excel", "SQL", "Power BI", "Tableau", "Requirement Gathering", "Stakeholder Management", "Documentation", "UML", "Agile", "Data Interpretation", "Dashboards", "KPIs", "JIRA"],
   "Product Manager": ["Roadmap", "User Stories", "Wireframes", "Analytics", "A/B Testing", "Feature Prioritization", "Agile", "Scrum", "Stakeholder", "Product Lifecycle", "UI/UX", "Figma", "KPI tracking"],
   "Operations Analyst": ["Excel", "SQL", "Process Optimization", "Automation", "ERP", "Data Reporting", "Forecasting", "KPI tracking", "Workflow Analysis"],
-  "Embedded Systems Engineer": ["C", "C++", "RTOS", "Microcontrollers", "ARM", "STM32", "UART", "SPI", "I2C", "PCB Design", "Embedded C", "FreeRTOS", "Linux Kernel", "Device Drivers"],
+  "Embedded Systems Engineer": ["C", "C++", "RTOS", "Microcontrollers", "ARM", "STM32", "UART", "SPI", "I2C", "PCB Design", "Embedded C", "FreeRTOS", "Linux Kernel", "Device Drivers", "Verilog", "MATLAB", "Multisim", "LM386", "RF amplifier", "VCO", "tuning circuit", "Semiconductor devices", "Electronics and Communication Engineering"],
   "Hardware Design Engineer": ["VHDL", "Verilog", "FPGA", "ASIC", "SystemVerilog", "EDA Tools", "Cadence", "Synopsys", "RTL", "Simulation", "Synthesis"],
   "IoT Engineer": ["Arduino", "Raspberry Pi", "MQTT", "LoRa", "Wi-Fi", "BLE", "ESP32", "Python", "C", "Node-RED", "Cloud Integration", "IoT Security", "Sensors"],
   "Cybersecurity Engineer": ["Penetration Testing", "Vulnerability Assessment", "OWASP", "Burp Suite", "Metasploit", "Wireshark", "SIEM", "IDS/IPS", "SOC", "Incident Response", "Threat Analysis", "Firewalls", "Linux", "Python"],
@@ -368,33 +368,8 @@ shadcn/ui, and Tailwind CSS.
 • Architected a secure, serverless backend using Supabase, leveraging Postgres with Row Level Security for
 data isolation and Deno-based Edge Functions. The core includes a strategy-engine processing live market
 data from the Twelve Data API and an AI assistant powered by a natural language command-parser.`,
-      "Resume Aravind.pdf": `Vellore Institute of Technology Vellore, Tamilnadu
-B. Tech, Electronics and Communication Engineering February 2025-Present CGPA-8.00.
-SBOA School & Junior College Chennai, Tamilnadu
-All Indian Senior School Certificate Examination May - 2022
-Percentage : 85.0%
-SBOA School & Junior College Chennai, Tamilnadu
-All Indian Secondary School Examination May - 2020
-Percentage : 86.4%
-Dedicated third-year Electronics and Communication Engineering student with a strong
-interest in core ECE technologies. Passionate about exploring digital marketing and
-committed to continuous learning and innovation in the tech industry.
-EDUCATION
-PROJECT
-Pollin AI
-Developed an AI system to monitor pollinator activity (e.g., bees, butterflies) in
-agricultural environments.
-Applied object detection through the Yolo v8 algorithm and CNN.
-Using LM386 as a comparator circuit for detection and using an RF amplifier,
-VCO, and a tuning circuit for jamming purposes.
-Mobile jammer and detector device (Multisim) Noise canceling headphones (Matlab) Detection of noise generated using a sample input and removing any noise
-above voice frequency using adaptive filtering algorithms to provide noise-cancelled output.
-CLUBS AND CHAPTERS Senior Core Community Member in Tamil Literary Association (TLA) VIT and have organized and volunteered in many events.
-CERTIFICATES
-The Complete Python Bootcamp From Zero to Hero in Python, Udemy.
-Electronics Foundations - Semiconductor devices, LinkedIn.
-Project Management Foundations, LinkedIn.
-Ethical Hacking: Vulnerability Analysis, LinkedIn. Introduction to Artificial Intelligence, LinkedIn.`,
+      "Resume Aravind.pdf": `PROFILESoftware skills - Verilog HDL, MATLAB, and Simulation - Multisim.Programming Skills - Python, C, C++, HTML, CSS, Java, JavaScript, ReactJS. Soft Skills - Project Management, Team Work, Communication, Leadership.Volunteer experience - Technical and cultural fest organizing committee.SKILLS Vellore Institute of Technology Vellore, Tamilnadu
+B. Tech, Electronics and Communication Engineering February 2025-Present CGPA-8.00.SBOA School & Junior College Chennai, TamilnaduAll Indian Senior School Certificate Examination May - 2022Percentage : 85.0%SBOA School & Junior College Chennai, TamilnaduAll Indian Secondary School Examination May - 2020Percentage : 86.4%Dedicated third-year Electronics and Communication Engineering student with a stronginterest in core ECE technologies. Passionate about exploring digital marketing andcommitted to continuous learning and innovation in the tech industry.EDUCATIONPROJECTCLUBS AND CHAPTERS Senior Core Community Member in Tamil Literary Association (TLA) VIT and have organized and volunteered in many events.CERTIFICATESThe Complete Python Bootcamp From Zero to Hero in Python, Udemy.Electronics Foundations - Semiconductor devices, LinkedIn.Project Management Foundations, LinkedIn.Ethical Hacking: Vulnerability Analysis, LinkedIn. Introduction to Artificial Intelligence, LinkedIn.Pollin AIDeveloped an AI system to monitor pollinator activity (e.g., bees, butterflies) inagricultural environments.Applied object detection through the Yolo v8 algorithm and CNN.Using LM386 as a comparator circuit for detection and using an RF amplifier,VCO, and a tuning circuit for jamming purposes.Mobile jammer and detector device (Multisim) Noise canceling headphones (Matlab) Detection of noise generated using a sample input and removing any noiseabove voice frequency using adaptive filtering algorithms to provide noise-cancelled output.`,
       // Add other mock resume contents here for different test cases if needed
     };
 
