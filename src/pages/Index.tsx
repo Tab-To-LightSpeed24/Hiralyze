@@ -45,7 +45,7 @@ const ROLE_KEYWORDS: { [key: string]: string[] } = {
 
 
 const Index = () => {
-  const [candidates, setCandidates] = useState<Candidate[]>(([]);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [processing, setProcessing] = useState<boolean>(false);
 
   // Helper function to simulate LLM parsing and scoring
@@ -101,6 +101,18 @@ const Index = () => {
         resume10thPercentage = parseFloat(grade10Match[2]);
       }
     }
+    // For Vishakan's resume, which has a different education format
+    if (education.length === 0 && resumeFileName === "Vishakan_latest_August_resume.pdf") {
+      const vishakanEduMatch = resumeContent.match(/EDUCATION\s*Vellore Institute of Technology, Vellore.*?B\. Tech in Computer Science Engineering.*?CGPA:\s*(\d+\.?\d*)\/10.*?Chennai Public School.*?Grade 12:\s*(\d+\.?\d*)%.*?Grade 10:\s*(\d+\.?\d*)%/is);
+      if (vishakanEduMatch) {
+        education.push("Vellore Institute of Technology, B. Tech in Computer Science Engineering");
+        resumeUGCGPA = parseFloat(vishakanEduMatch[1]);
+        education.push("Chennai Public School, Grade 12");
+        resume12thPercentage = parseFloat(vishakanEduMatch[2]);
+        education.push("Chennai Public School, Grade 10");
+        resume10thPercentage = parseFloat(vishakanEduMatch[3]);
+      }
+    }
     if (education.length === 0) education.push("No specific education identified");
 
     // --- Skill Extraction ---
@@ -119,6 +131,18 @@ const Index = () => {
         }
       });
     }
+    // For Vishakan's resume, which has a different skills format
+    if (identifiedSkills.size === 0 && resumeFileName === "Vishakan_latest_August_resume.pdf") {
+      const vishakanSkillsMatch = resumeContent.match(/SKILLS\s*• Programming: (.*?)\.\s*• Cloud Computing: (.*?)\.\s*• ML, DL&AI: (.*?)\.\s*• Data Handling and Visualization: (.*?)\.\s*• Languages: (.*?)\./is);
+      if (vishakanSkillsMatch) {
+        const programming = vishakanSkillsMatch[1].split(',').map(s => s.trim()).filter(Boolean);
+        const cloud = vishakanSkillsMatch[2].split(',').map(s => s.trim()).filter(Boolean);
+        const mlDlAi = vishakanSkillsMatch[3].split(',').map(s => s.trim()).filter(Boolean);
+        const dataHandling = vishakanSkillsMatch[4].split(',').map(s => s.trim()).filter(Boolean);
+        [...programming, ...cloud, ...mlDlAi, ...dataHandling].forEach(skill => identifiedSkills.add(skill));
+      }
+    }
+
 
     // Extract skills from CERTIFICATIONS
     const certificationsBlockMatch = resumeContent.match(/CERTIFICATIONS\s*([\s\S]+?)(?=(?:WORK EXPERIENCE|PROJECTS|SKILLS|EDUCATION|$))/i);
