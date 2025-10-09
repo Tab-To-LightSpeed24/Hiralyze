@@ -45,7 +45,7 @@ const ROLE_KEYWORDS: { [key: string]: string[] } = {
 
 
 const Index = () => {
-  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [candidates, setCandidates] = useState<Candidate[]>(([]);
   const [processing, setProcessing] = useState<boolean>(false);
 
   // Helper function to simulate LLM parsing and scoring
@@ -54,13 +54,13 @@ const Index = () => {
     let matchScore = 0;
     let justification = "";
     let skills: string[] = [];
-    let experience: string[] = []; // This will primarily hold project experience for interns
+    let experience: string[] = [];
     let education: string[] = [];
     let suggestedRole: string | undefined = undefined;
     let scoreReasoning: string[] = [];
 
     const resumeContentLower = resumeContent.toLowerCase();
-    const jobDescriptionLower = jobDescription.toLowerCase(); // Added for easier comparison
+    const jobDescriptionLower = jobDescription.toLowerCase();
 
     // --- Simulate JD Eligibility Criteria Parsing ---
     const jdCriteria = {
@@ -77,48 +77,60 @@ const Index = () => {
       requiredExperienceKeywords: (jobDescription.match(/(?:experience|responsibilities):?\s*([\w\s,.-]+)/i)?.[1]?.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)) || [],
     };
 
-    // --- Simulate Resume Details Extraction ---
-    const resumeDetails = {
-      extractedCertificates: resumeContent.match(/CERTIFICATES\s*([\s\S]+?)(?=(?:Projects|CLUBS AND CHAPTERS|EDUCATION|$))/i)?.[1]?.split(/•\s*|\n/).map(s => s.trim()).filter(Boolean) || [],
-      extractedProfessionalExperience: resumeContent.match(/Experience:\s*([\s\S]+?)(?=(?:Skills:|Education:|Projects:|$))/i)?.[1]?.split('\n').map(s => s.trim()).filter(Boolean) || [],
-      extractedProjectsRaw: resumeContent.match(/PROJECTS?\s*([\s\S]+?)(?=(?:CLUBS AND CHAPTERS|CERTIFICATES|EDUCATION|$))/i)?.[1],
-    };
-
     // --- Education Parsing ---
-    const educationBlockMatch = resumeContent.match(/EDUCATION\s*([\s\S]+?)(?=(?:PROJECT|CLUBS AND CHAPTERS|CERTIFICATES|$))/i);
-    const educationBlock = educationBlockMatch ? educationBlockMatch[1] : resumeContent; // If no explicit block, search whole resume
+    let resume10thPercentage = 0;
+    let resume12thPercentage = 0;
+    let resumeUGCGPA = 0;
 
-    const resume10thPercentage = parseFloat(educationBlock.match(/Grade 10:\s*(\d+\.?\d*)%|Secondary School Examination.*?Percentage\s*:\s*(\d+\.?\d*)%/i)?.[1] || educationBlock.match(/Secondary School Examination.*?Percentage\s*:\s*(\d+\.?\d*)%/i)?.[2] || '0');
-    const resume12thPercentage = parseFloat(educationBlock.match(/Grade 12:\s*(\d+\.?\d*)%|Senior School Certificate Examination.*?Percentage\s*:\s*(\d+\.?\d*)%/i)?.[1] || educationBlock.match(/Senior School Certificate Examination.*?Percentage\s*:\s*(\d+\.?\d*)%/i)?.[2] || '0');
-    const resumeUGCGPA = parseFloat(educationBlock.match(/CGPA:\s*(\d+\.?\d*)|CGPA-(\d+\.?\d*)/i)?.[1] || educationBlock.match(/CGPA:\s*(\d+\.?\d*)|CGPA-(\d+\.?\d*)/i)?.[2] || '0');
-    const extractedDegrees = educationBlock.match(/(B\.Tech|M\.Tech|B\.S\.|M\.S\.|Ph\.D\.)(?: in [A-Za-z\s]+)?(?:.*?CGPA[-:]?\s*(\d+\.?\d*))?/g) || [];
-
-    // Populate education array
-    if (extractedDegrees.length > 0) education.push(...extractedDegrees);
-    if (resumeUGCGPA > 0) education.push(`UG CGPA: ${resumeUGCGPA}`);
-    if (resume12thPercentage > 0) education.push(`12th Grade: ${resume12thPercentage}%`);
-    if (resume10thPercentage > 0) education.push(`10th Grade: ${resume10thPercentage}%`);
+    const educationBlockMatch = resumeContent.match(/EDUCATION\s*([\s\S]+?)(?=(?:WORK EXPERIENCE|PROJECTS|SKILLS|CERTIFICATIONS|$))/i);
+    if (educationBlockMatch) {
+      const educationBlock = educationBlockMatch[1];
+      const universityDegreeMatch = educationBlock.match(/(Vellore Institute of Technology,.*?B\. Tech in Computer Science Engineering.*?CGPA:\s*(\d+\.?\d*)\/10)/i);
+      if (universityDegreeMatch) {
+        education.push(universityDegreeMatch[1].trim());
+        resumeUGCGPA = parseFloat(universityDegreeMatch[2]);
+      }
+      const grade12Match = educationBlock.match(/(Chennai Public School.*?Grade 12:\s*(\d+\.?\d*)%)/i);
+      if (grade12Match) {
+        education.push(grade12Match[1].trim());
+        resume12thPercentage = parseFloat(grade12Match[2]);
+      }
+      const grade10Match = educationBlock.match(/(Chennai Public School.*?Grade 10:\s*(\d+\.?\d*)%)/i);
+      if (grade10Match) {
+        education.push(grade10Match[1].trim());
+        resume10thPercentage = parseFloat(grade10Match[2]);
+      }
+    }
     if (education.length === 0) education.push("No specific education identified");
 
-
-    // --- Enhanced Skill Extraction ---
+    // --- Skill Extraction ---
     let identifiedSkills = new Set<string>();
-
-    // Extract skills from the initial profile line
-    const profileSkillsMatch = resumeContent.match(/PROFILESoftware skills - (.*?)\.Programming Skills - (.*?)\./i);
-    if (profileSkillsMatch) {
-      const softwareSkills = profileSkillsMatch[1].split(',').map(s => s.trim()).filter(Boolean);
-      const programmingSkills = profileSkillsMatch[2].split(',').map(s => s.trim()).filter(Boolean);
-      [...softwareSkills, ...programmingSkills].forEach(skill => identifiedSkills.add(skill));
+    const skillsBlockMatch = resumeContent.match(/SKILLS\s*([\s\S]+?)(?=(?:EDUCATION|WORK EXPERIENCE|PROJECTS|CERTIFICATIONS|$))/i);
+    if (skillsBlockMatch) {
+      const skillsBlock = skillsBlockMatch[1];
+      const skillLines = skillsBlock.split(/•\s*/).map(s => s.trim()).filter(Boolean);
+      skillLines.forEach(line => {
+        const parts = line.split(':');
+        if (parts.length > 1) {
+          const categorySkills = parts[1].split(',').map(s => s.trim()).filter(Boolean);
+          categorySkills.forEach(skill => identifiedSkills.add(skill));
+        } else {
+          line.split(',').map(s => s.trim()).filter(Boolean).forEach(skill => identifiedSkills.add(skill));
+        }
+      });
     }
 
-    // Add skills from certificates
-    resumeDetails.extractedCertificates.forEach(cert => {
-        const certKeywords = cert.match(/(Python|Semiconductor devices|Project Management|Ethical Hacking|Vulnerability Analysis|Artificial Intelligence|Yolo v8|CNN|LM386|RF amplifier|VCO|tuning circuit|Multisim|Matlab|adaptive filtering)/i);
+    // Extract skills from CERTIFICATIONS
+    const certificationsBlockMatch = resumeContent.match(/CERTIFICATIONS\s*([\s\S]+?)(?=(?:WORK EXPERIENCE|PROJECTS|SKILLS|EDUCATION|$))/i);
+    if (certificationsBlockMatch) {
+      const certs = certificationsBlockMatch[1].split(/•\s*/).map(s => s.trim()).filter(Boolean);
+      certs.forEach(cert => {
+        const certKeywords = cert.match(/(AWS Cloud Practitioner|IBM AI Engineering Professional|Data Analytics|Amazon Web Services|Artificial Intelligence|Machine Learning)/i);
         if (certKeywords) {
-            certKeywords.forEach(kw => identifiedSkills.add(kw));
+          certKeywords.forEach(kw => identifiedSkills.add(kw));
         }
-    });
+      });
+    }
 
     // Scan resume content for keywords from ROLE_KEYWORDS
     Object.values(ROLE_KEYWORDS).flat().forEach(keyword => {
@@ -129,39 +141,44 @@ const Index = () => {
     skills = Array.from(identifiedSkills);
     if (skills.length === 0) skills.push("No specific skills identified");
 
-    // --- Project/Experience Extraction ---
-    if (resumeDetails.extractedProjectsRaw) {
-      const projectParts = resumeDetails.extractedProjectsRaw.split(/(Pollin AI|Mobile jammer and detector device|Noise canceling headphones)/i);
-      let currentProject = "";
-      let tempProjects: string[] = [];
+    // --- Experience Parsing ---
+    const tempExperience: string[] = [];
 
-      for (let i = 0; i < projectParts.length; i++) {
-        const part = projectParts[i].trim();
-        if (!part) continue;
+    const parseSectionContent = (sectionContent: string) => {
+      const entries: string[] = [];
+      const lines = sectionContent.split('\n').map(l => l.trim()).filter(Boolean);
+      let currentEntryLines: string[] = [];
 
-        // Check if this part is one of the recognized project titles
-        const isProjectTitle = part.toLowerCase().includes("pollin ai") || 
-                               part.toLowerCase().includes("mobile jammer") || 
-                               part.toLowerCase().includes("noise canceling headphones");
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const isBullet = line.startsWith('•');
 
-        if (isProjectTitle) {
-          if (currentProject) {
-            tempProjects.push(currentProject.trim());
-          }
-          currentProject = part; // Start new project with this title
+        if (isBullet) {
+          currentEntryLines.push(line.substring(1).trim());
         } else {
-          currentProject += (currentProject ? " " : "") + part; // Append to current project
+          if (currentEntryLines.length > 0) {
+            entries.push(currentEntryLines.join(' '));
+            currentEntryLines = [];
+          }
+          currentEntryLines.push(line);
         }
       }
-      if (currentProject) {
-        tempProjects.push(currentProject.trim());
+      if (currentEntryLines.length > 0) {
+        entries.push(currentEntryLines.join(' '));
       }
-      experience = tempProjects.filter(Boolean);
+      return entries;
+    };
+
+    const workExperienceBlockMatch = resumeContent.match(/WORK EXPERIENCE\s*([\s\S]+?)(?=(?:CERTIFICATIONS|PROJECTS|SKILLS|EDUCATION|$))/i);
+    if (workExperienceBlockMatch) {
+      tempExperience.push(...parseSectionContent(workExperienceBlockMatch[1]));
     }
 
-    if (resumeDetails.extractedProfessionalExperience.length > 0) {
-      experience = [...resumeDetails.extractedProfessionalExperience, ...experience];
+    const projectsBlockMatch = resumeContent.match(/PROJECTS\s*([\s\S]+?)(?=(?:SKILLS|EDUCATION|WORK EXPERIENCE|CERTIFICATIONS|$))/i);
+    if (projectsBlockMatch) {
+      tempExperience.push(...parseSectionContent(projectsBlockMatch[1]));
     }
+    experience = tempExperience;
     if (experience.length === 0) experience.push("No specific experience identified");
 
 
@@ -170,14 +187,14 @@ const Index = () => {
     let missingKeywords: string[] = [];
     let jdPrimaryRoleKeywords: string[] = [];
     let jdPrimaryRole: string | undefined;
-    let matchedJdKeywordsCount = 0; // Initialize here
+    let matchedJdKeywordsCount = 0;
 
     // Try to infer the primary role from the job description
     for (const role in ROLE_KEYWORDS) {
       if (jobDescriptionLower.includes(role.toLowerCase())) {
         jdPrimaryRole = role;
         jdPrimaryRoleKeywords = ROLE_KEYWORDS[role].map(k => k.toLowerCase());
-        break; // Found a direct match, use it
+        break;
       }
     }
 
@@ -194,15 +211,14 @@ const Index = () => {
         }
       }
 
-      if (matchedJdKeywordsCount < 3) { // Require at least 3 keywords for shortlisting
+      if (matchedJdKeywordsCount < 3) {
         isShortlisted = false;
       }
     }
 
     if (!isShortlisted) {
-      matchScore = 1; // Set to minimum score if not shortlisted
+      matchScore = 1;
       justification = `This candidate, ${candidateName}, received a score of ${matchScore}/10. Reasoning: Candidate is NOT shortlisted because the job description for '${jdPrimaryRole || "unspecified role"}' requires at least 3 critical keywords, but only ${matchedJdKeywordsCount} were found. Missing: ${missingKeywords.join(", ")}.`;
-      // Skip further scoring as the candidate is already not shortlisted
       return {
         id: `cand-${Date.now()}-${Math.random()}`,
         name: candidateName,
@@ -213,16 +229,15 @@ const Index = () => {
         matchScore: matchScore,
         justification: justification,
         resumeFileName: resumeFileName,
-        suggestedRole: suggestedRole, // Still suggest a role based on their skills
+        suggestedRole: suggestedRole,
       };
     }
 
 
     // --- Scoring Logic (only if shortlisted) ---
-    let baseScore = 5; // Start with a neutral score
+    let baseScore = 5;
 
-    // 1. Education Eligibility & Scoring
-    if (jdCriteria.requiresEngineeringDegree && !education.some(edu => edu.toLowerCase().includes("b.tech") || edu.toLowerCase().includes("computer science") || edu.toLowerCase().includes("engineering"))) {
+    if (jdCriteria.requiresEngineeringDegree && !education.some(edu => edu.toLowerCase().includes("b.tech") || edu.toLowerCase().includes("computer science engineering"))) {
       scoreReasoning.push("Missing required Engineering degree.");
       baseScore -= 2;
     } else if (jdCriteria.requiresEngineeringDegree) {
@@ -255,9 +270,9 @@ const Index = () => {
     }
 
     // 2. Experience Eligibility & Scoring
-    if (jdCriteria.zeroExperienceCandidatesOnly && resumeDetails.extractedProfessionalExperience.length > 0) {
+    if (jdCriteria.zeroExperienceCandidatesOnly && experience.some(exp => !exp.toLowerCase().includes("project"))) { // Check for non-project experience
       scoreReasoning.push("Candidate has professional experience, but job requires zero experience.");
-      baseScore -= 4; // Significant deduction
+      baseScore -= 4;
     } else if (jdCriteria.zeroExperienceCandidatesOnly) {
       scoreReasoning.push("Candidate has no professional experience, meeting 'zero experience' criteria.");
       baseScore += 1;
@@ -330,17 +345,17 @@ const Index = () => {
     }
 
     // Final score capping
-    matchScore = Math.min(10, Math.max(1, baseScore)); // Cap score between 1 and 10
+    matchScore = Math.min(10, Math.max(1, baseScore));
 
     justification = `This candidate, ${candidateName}, received a score of ${matchScore}/10. Reasoning: ${scoreReasoning.join(" ")}.`;
     
     // --- Determine suggested role based on comprehensive skills/experience ---
     let bestRoleMatchCount = 0;
-    let potentialSuggestedRole = "Entry-Level Candidate"; // Default
+    let potentialSuggestedRole = "Entry-Level Candidate";
 
     const candidateCapabilities = new Set<string>();
     skills.forEach(s => candidateCapabilities.add(s.toLowerCase()));
-    experience.forEach(exp => exp.split(/\s*,\s*|\s+/).forEach(word => candidateCapabilities.add(word.toLowerCase()))); // Break down experience into keywords
+    experience.forEach(exp => exp.split(/\s*,\s*|\s+/).forEach(word => candidateCapabilities.add(word.toLowerCase())));
 
     for (const role in ROLE_KEYWORDS) {
       let currentRoleMatchCount = 0;
@@ -418,8 +433,39 @@ data isolation and Deno-based Edge Functions. The core includes a strategy-engin
 data from the Twelve Data API and an AI assistant powered by a natural language command-parser.`,
       "Resume Aravind.pdf": `PROFILESoftware skills - Verilog HDL, MATLAB, and Simulation - Multisim.Programming Skills - Python, C, C++, HTML, CSS, Java, JavaScript, ReactJS. Soft Skills - Project Management, Team Work, Communication, Leadership.Volunteer experience - Technical and cultural fest organizing committee.SKILLS Vellore Institute of Technology Vellore, Tamilnadu
 B. Tech, Electronics and Communication Engineering February 2025-Present CGPA-8.00.SBOA School & Junior College Chennai, TamilnaduAll Indian Senior School Certificate Examination May - 2022Percentage : 85.0%SBOA School & Junior College Chennai, TamilnaduAll Indian Secondary School Examination May - 2020Percentage : 86.4%Dedicated third-year Electronics and Communication Engineering student with a stronginterest in core ECE technologies. Passionate about exploring digital marketing andcommitted to continuous learning and innovation in the tech industry.EDUCATIONPROJECTCLUBS AND CHAPTERS Senior Core Community Member in Tamil Literary Association (TLA) VIT and have organized and volunteered in many events.CERTIFICATESThe Complete Python Bootcamp From Zero to Hero in Python, Udemy.Electronics Foundations - Semiconductor devices, LinkedIn.Project Management Foundations, LinkedIn.Ethical Hacking: Vulnerability Analysis, LinkedIn. Introduction to Artificial Intelligence, LinkedIn.Pollin AIDeveloped an AI system to monitor pollinator activity (e.g., bees, butterflies) inagricultural environments.Applied object detection through the Yolo v8 algorithm and CNN.Using LM386 as a comparator circuit for detection and using an RF amplifier,VCO, and a tuning circuit for jamming purposes.Mobile jammer and detector device (Multisim) Noise canceling headphones (Matlab) Detection of noise generated using a sample input and removing any noiseabove voice frequency using adaptive filtering algorithms to provide noise-cancelled output.`,
-      "Vishakan_latest_August_resume.pdf": `PROFILESoftware skills - Verilog HDL, MATLAB, and Simulation - Multisim.Programming Skills - Python, C, C++, HTML, CSS, Java, JavaScript, ReactJS. Soft Skills - Project Management, Team Work, Communication, Leadership.Volunteer experience - Technical and cultural fest organizing committee.SKILLS Vellore Institute of Technology Vellore, Tamilnadu
-B. Tech, Electronics and Communication Engineering February 2025-Present CGPA-8.00.SBOA School & Junior College Chennai, TamilnaduAll Indian Senior School Certificate Examination May - 2022Percentage : 85.0%SBOA School & Junior College Chennai, TamilnaduAll Indian Secondary School Examination May - 2020Percentage : 86.4%Dedicated third-year Electronics and Communication Engineering student with a stronginterest in core ECE technologies. Passionate about exploring digital marketing andcommitted to continuous learning and innovation in the tech industry.EDUCATIONPROJECTCLUBS AND CHAPTERS Senior Core Community Member in Tamil Literary Association (TLA) VIT and have organized and volunteered in many events.CERTIFICATESThe Complete Python Bootcamp From Zero to Hero in Python, Udemy.Electronics Foundations - Semiconductor devices, LinkedIn.Project Management Foundations, LinkedIn.Ethical Hacking: Vulnerability Analysis, LinkedIn. Introduction to Artificial Intelligence, LinkedIn.Pollin AIDeveloped an AI system to monitor pollinator activity (e.g., bees, butterflies) inagricultural environments.Applied object detection through the Yolo v8 algorithm and CNN.Using LM386 as a comparator circuit for detection and using an RF amplifier,VCO, and a tuning circuit for jamming purposes.Mobile jammer and detector device (Multisim) Noise canceling headphones (Matlab) Detection of noise generated using a sample input and removing any noiseabove voice frequency using adaptive filtering algorithms to provide noise-cancelled output.`,
+      "Vishakan_latest_August_resume.pdf": `SKILLS
+• Programming: Python, Java, SQL, R, Bash.
+• Cloud Computing: Amazon Web Services (AWS).
+• ML, DL&AI: Scikit-learn, TensorFlow, Pytorch, Transformers (BERT, RoBERTa), Vision Transformers (ViT).
+• Data Handling and Visualization: Pandas, NumPy, Tableau, Data Cleaning
+• Languages: English, Tamil, Hindi (Basic), French (Basic)
+EDUCATION
+Vellore Institute of Technology, Vellore 2022 - Present
+• B. Tech in Computer Science Engineering Vellore, India
+• CGPA: 8.45/10
+Chennai Public School 2020 - 2022
+• Central Board of Secondary Education (CBSE) Chennai, India
+• Grade 12: 94.8%
+• Grade 10: 94.6%
+WORK EXPERIENCE
+Machine Learning Intern
+Salcomp India Pvt Ltd, Chennai, India June 2025 – July 2025
+• Prototyped machine learning solutions to predict industrial equipment failures using real-time MySQL data.
+• Developed customized LSTM-based models to forecast next failure events and automate risk alerts.
+• Integrated ML models into a Flask web app to support intelligent decision-making.
+CERTIFICATIONS
+• Amazon Web Services: Holder of AWS Cloud Practitioner Certification.
+• IBM AI Engineer: Achieved IBM AI Engineering Professional Certification.
+• My Captain Data Analytics: Earned external certification on Data Analytics on My Captain platform with LOR
+PROJECTS
+Multimodal Emotion Recognition System (MELD Dataset) using Fusion
+• Achieved 67% accuracy on 7-emotion classification from 13,708 videos by fusing text (RoBERTa), audio (MFCC), and visual (ResNet18) features, outperforming unimodal baselines by 86%.
+• Optimized training pipeline with late fusion architecture, reducing convergence time by 40%
+Quantum vs Classical Maze Pathfinding
+• Designed a comparative maze pathfinding framework implementing classical A search and quantum Grover’s algorithm.
+• Demonstrated theoretical speedup of Grover’s algorithm over A* in complex maze environments, using Qiskit simulations and analysed scaling behaviour along with limitations.
+Dynamic Traffic Route Planner with Live Simulation
+• Developed a Python-based routing engine with Dijkstra, A*, and real`,
       // Add other mock resume contents here for different test cases if needed
     };
 
