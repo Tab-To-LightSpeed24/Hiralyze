@@ -19,14 +19,58 @@ const Index = () => {
     let education: string[] = [];
     let suggestedRole: string | undefined = undefined;
 
-    // --- Simulate strict qualification and formatting checks ---
-    const jdRequiresEducation = jobDescription.toLowerCase().includes("bachelor's degree") || jobDescription.toLowerCase().includes("education required");
-    const resumeMentionsEducation = resumeContent.toLowerCase().includes("degree") || resumeContent.toLowerCase().includes("university") || resumeContent.toLowerCase().includes("education:");
+    // --- Simulate JD Eligibility Criteria Parsing ---
+    const jdCriteria = {
+      min10thPercentage: parseFloat(jobDescription.match(/10th grade min (\d+\.?\d*)%/)?.at(1) || '0'),
+      min12thPercentage: parseFloat(jobDescription.match(/12th grade min (\d+\.?\d*)%/)?.at(1) || '0'),
+      minUGCGPA: parseFloat(jobDescription.match(/UG min CGPA (\d+\.?\d*)/)?.at(1) || '0'),
+      minPGCGPA: parseFloat(jobDescription.match(/PG min CGPA (\d+\.?\d*)/)?.at(1) || '0'),
+      requiresEducation: jobDescription.toLowerCase().includes("bachelor's degree") || jobDescription.toLowerCase().includes("education required") || jobDescription.toLowerCase().includes("degree in"),
+    };
 
-    if (jdRequiresEducation && !resumeMentionsEducation) {
-      matchScore = 0;
-      justification = `Resume rejected: Missing basic qualification (Education) required by the job description. Please ensure the resume includes educational details.`;
-      suggestedRole = "N/A - Missing Qualifications";
+    // --- Simulate Resume Education Details Extraction ---
+    const resumeDetails = {
+      hasEducationSection: resumeContent.toLowerCase().includes("education:") || resumeContent.toLowerCase().includes("academic background"),
+      resume10thPercentage: parseFloat(resumeContent.match(/10th grade: (\d+\.?\d*)%/)?.at(1) || '0'),
+      resume12thPercentage: parseFloat(resumeContent.match(/12th grade: (\d+\.?\d*)%/)?.at(1) || '0'),
+      resumeUGCGPA: parseFloat(resumeContent.match(/UG CGPA:? (\d+\.?\d*)/)?.at(1) || '0'),
+      resumePGCGPA: parseFloat(resumeContent.match(/PG CGPA:? (\d+\.?\d*)/)?.at(1) || '0'),
+      extractedDegrees: resumeContent.match(/(B\.S\.|M\.S\.|Ph\.D\.) in [A-Za-z\s]+(?:, \d{4})?/g) || [],
+    };
+
+    // Populate education array if found
+    if (resumeDetails.hasEducationSection || resumeDetails.extractedDegrees.length > 0 || resumeDetails.resumeUGCGPA > 0) {
+      if (resumeDetails.extractedDegrees.length > 0) education.push(...resumeDetails.extractedDegrees);
+      if (resumeDetails.resumeUGCGPA > 0) education.push(`UG CGPA: ${resumeDetails.resumeUGCGPA}`);
+      if (resumeDetails.resumePGCGPA > 0) education.push(`PG CGPA: ${resumeDetails.resumePGCGPA}`);
+      if (resumeDetails.resume12thPercentage > 0) education.push(`12th Grade: ${resumeDetails.resume12thPercentage}%`);
+      if (resumeDetails.resume10thPercentage > 0) education.push(`10th Grade: ${resumeDetails.resume10thPercentage}%`);
+      if (education.length === 0 && resumeDetails.hasEducationSection) education.push("Education details present but not specifically parsed.");
+    }
+
+
+    // --- Strict Validity Checks ---
+    let rejected = false;
+    let rejectionReason = "";
+
+    if (jdCriteria.requiresEducation && !resumeDetails.hasEducationSection && resumeDetails.extractedDegrees.length === 0) {
+      rejected = true;
+      rejectionReason = `Resume rejected: Missing basic qualification (Education) required by the job description.`;
+    } else if (jdCriteria.min10thPercentage > 0 && resumeDetails.resume10thPercentage < jdCriteria.min10thPercentage) {
+      rejected = true;
+      rejectionReason = `Resume rejected: 10th grade percentage (${resumeDetails.resume10thPercentage}%) is below the required ${jdCriteria.min10thPercentage}%.`;
+    } else if (jdCriteria.min12thPercentage > 0 && resumeDetails.resume12thPercentage < jdCriteria.min12thPercentage) {
+      rejected = true;
+      rejectionReason = `Resume rejected: 12th grade percentage (${resumeDetails.resume12thPercentage}%) is below the required ${jdCriteria.min12thPercentage}%.`;
+    } else if (jdCriteria.minUGCGPA > 0 && resumeDetails.resumeUGCGPA < jdCriteria.minUGCGPA) {
+      rejected = true;
+      rejectionReason = `Resume rejected: UG CGPA (${resumeDetails.resumeUGCGPA}) is below the required ${jdCriteria.minUGCGPA}.`;
+    } else if (jdCriteria.minPGCGPA > 0 && resumeDetails.resumePGCGPA < jdCriteria.minPGCGPA) {
+      rejected = true;
+      rejectionReason = `Resume rejected: PG CGPA (${resumeDetails.resumePGCGPA}) is below the required ${jdCriteria.minPGCGPA}.`;
+    }
+
+    if (rejected) {
       return {
         id: `cand-${Date.now()}-${Math.random()}`,
         name: candidateName,
@@ -35,45 +79,47 @@ const Index = () => {
         experience: [],
         education: [],
         matchScore: 0,
-        justification: justification,
+        justification: rejectionReason + " Please ensure the resume meets all eligibility criteria.",
         resumeFileName: resumeFileName,
-        suggestedRole: suggestedRole,
+        suggestedRole: "N/A - Not Eligible",
       };
     }
 
-    // Simulate parsing for the given single sentence resume content
+    // --- Simulate parsing for the given single sentence resume content ---
     // For the specific test case: "Senior Software Engineer with 6 years experience. Proficient in React.js, Node.js, and AWS cloud services. Proven track record of solving complex technical challenges."
     if (resumeContent.includes("Senior Software Engineer") && resumeContent.includes("React.js") && resumeContent.includes("Node.js") && resumeContent.includes("AWS cloud services")) {
       skills = ["React.js", "Node.js", "AWS Cloud Services", "Problem Solving"];
       experience = ["Senior Software Engineer (6 years)", "Proven track record in complex technical challenges"];
       
-      // If education is not strictly required by JD, but not found in resume
-      if (!resumeMentionsEducation) {
-        justification = `This candidate, ${candidateName}, shows strong alignment with the technical requirements (React.js, Node.js, AWS) and experience level (Senior Software Engineer, 6 years).`;
-        justification += ` However, explicit education details were not clearly identified, which might limit a full assessment.`;
-        matchScore = Math.floor(Math.random() * 3) + 7; // Still a good score for strong technical match
-        suggestedRole = "Senior Software Engineer";
+      justification = `This candidate, ${candidateName}, shows strong alignment with the technical requirements (React.js, Node.js, AWS) and experience level (Senior Software Engineer, 6 years).`;
+      matchScore = Math.floor(Math.random() * 3) + 7; // Still a good score for strong technical match
+
+      if (!resumeDetails.hasEducationSection && resumeDetails.extractedDegrees.length === 0) {
+        justification += ` However, explicit education details were not clearly identified, which might limit a full assessment. Consider a more structured resume format.`;
+        matchScore = Math.max(1, matchScore - 2); // Deduct points for missing explicit education
+        suggestedRole = "Senior Software Engineer (Education Review Needed)";
       } else {
-        // If education was found (e.g., in a more comprehensive resume)
-        education = ["Relevant Technical Degree"]; // Placeholder for actual extraction
-        justification = `This candidate, ${candidateName}, is an excellent match for the role, demonstrating strong proficiency in ${skills.join(', ')} and extensive experience as a ${experience[0]}.`;
         justification += ` Their educational background further strengthens their profile.`;
-        matchScore = Math.floor(Math.random() * 2) + 8; // Very high score
         suggestedRole = "Lead Software Architect";
       }
     } else {
       // Generic handling for other brief/unstructured resumes
       skills = ["General Technical Skills"];
       experience = ["Limited experience details"];
-      education = resumeMentionsEducation ? ["Some educational background"] : [];
       matchScore = Math.floor(Math.random() * 4) + 3; // Lower score for less detail
       justification = `This resume (${resumeFileName}) provides some relevant keywords but lacks detailed sections for a comprehensive assessment.`;
-      if (!resumeMentionsEducation) {
+      if (!resumeDetails.hasEducationSection && resumeDetails.extractedDegrees.length === 0) {
         justification += ` Education details were not clearly identified.`;
       }
       justification += ` Consider a more structured resume format for better analysis.`;
       suggestedRole = "Technical Support Specialist";
     }
+
+    // Add a warning for badly formatted sections if education was found but not fully parsed
+    if (resumeDetails.hasEducationSection && education.length === 0 && !rejected) {
+      justification += ` Warning: Education section found but format was not clearly parsable for specific details.`;
+    }
+
 
     return {
       id: `cand-${Date.now()}-${Math.random()}`,
@@ -96,7 +142,10 @@ const Index = () => {
 
     // Simulate reading file content (for demonstration, we'll use a hardcoded string for the specific test case)
     const mockResumeContentMap: { [key: string]: string } = {
-      "testing.pdf": "Senior Software Engineer with 6 years experience. Proficient in React.js, Node.js, and AWS cloud services. Proven track record of solving complex technical challenges.",
+      "testing.pdf": "Senior Software Engineer with 6 years experience. Proficient in React.js, Node.js, and AWS cloud services. Proven track record of solving complex technical challenges. Education: B.S. in Computer Science, 8.5 CGPA. 12th grade: 90%. 10th grade: 85%.",
+      "another_resume.pdf": "Junior Developer with 2 years experience in JavaScript. Education: B.S. in Information Technology, 6.5 CGPA. 12th grade: 70%.",
+      "no_education.pdf": "Experienced Project Manager with 10 years in agile environments. Led multiple successful product launches.",
+      "poorly_formatted_edu.pdf": "Project Lead. Experience in team management. Education section: University of XYZ, Graduated 2010. No specific grades mentioned.",
       // Add other mock resume contents here for different test cases if needed
     };
 
