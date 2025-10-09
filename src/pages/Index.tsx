@@ -404,7 +404,10 @@ Ethical Hacking: Vulnerability Analysis, LinkedIn. Introduction to Artificial In
         return mockAnalyzeResume(file.name, resumeContent, jobDescription);
       });
 
-      setCandidates(processedCandidates);
+      // Filter out candidates that were explicitly marked as "NOT shortlisted" (matchScore === 1)
+      const shortlistedCandidates = processedCandidates.filter(candidate => candidate.matchScore > 1);
+
+      setCandidates(shortlistedCandidates);
       setProcessing(false);
     }, 1500); // Simulate network delay
   };
