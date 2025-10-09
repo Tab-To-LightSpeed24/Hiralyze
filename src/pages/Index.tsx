@@ -79,32 +79,41 @@ const Index = () => {
 
     // --- Simulate Resume Details Extraction ---
     const resumeDetails = {
-      resume10thPercentage: parseFloat(resumeContent.match(/Grade 10:\s*(\d+\.?\d*)%|Secondary School Examination.*?Percentage\s*:\s*(\d+\.?\d*)%/i)?.[1] || resumeContent.match(/Secondary School Examination.*?Percentage\s*:\s*(\d+\.?\d*)%/i)?.[2] || '0'),
-      resume12thPercentage: parseFloat(resumeContent.match(/Grade 12:\s*(\d+\.?\d*)%|Senior School Certificate Examination.*?Percentage\s*:\s*(\d+\.?\d*)%/i)?.[1] || resumeContent.match(/Senior School Certificate Examination.*?Percentage\s*:\s*(\d+\.?\d*)%/i)?.[2] || '0'),
-      resumeUGCGPA: parseFloat(resumeContent.match(/CGPA:\s*(\d+\.?\d*)|CGPA-(\d+\.?\d*)/i)?.[1] || resumeContent.match(/CGPA:\s*(\d+\.?\d*)|CGPA-(\d+\.?\d*)/i)?.[2] || '0'),
-      extractedDegrees: resumeContent.match(/(B\.Tech|M\.Tech|B\.S\.|M\.S\.|Ph\.D\.)(?: in [A-Za-z\s]+)?(?:.*?CGPA[-:]?\s*(\d+\.?\d*))?/g) || [],
-      extractedSkillsSection: resumeContent.match(/Technical Skills\s*([\s\S]+?)(?=(?:Projects|CLUBS AND CHAPTERS|CERTIFICATES|EDUCATION|$))/i)?.[1]?.split(/•\s*|\n/).map(s => s.trim()).filter(Boolean) || [],
       extractedCertificates: resumeContent.match(/CERTIFICATES\s*([\s\S]+?)(?=(?:Projects|CLUBS AND CHAPTERS|EDUCATION|$))/i)?.[1]?.split(/•\s*|\n/).map(s => s.trim()).filter(Boolean) || [],
       extractedProfessionalExperience: resumeContent.match(/Experience:\s*([\s\S]+?)(?=(?:Skills:|Education:|Projects:|$))/i)?.[1]?.split('\n').map(s => s.trim()).filter(Boolean) || [],
-      extractedProjects: resumeContent.match(/PROJECTS?\s*([\s\S]+?)(?=(?:CLUBS AND CHAPTERS|CERTIFICATES|EDUCATION|$))/i)?.[1]?.split(/(?:\n\s*(?=[A-Z][a-z])|•\s*)/).map(s => s.trim()).filter(Boolean) || [], // Improved project parsing
+      extractedProjectsRaw: resumeContent.match(/PROJECTS?\s*([\s\S]+?)(?=(?:CLUBS AND CHAPTERS|CERTIFICATES|EDUCATION|$))/i)?.[1],
     };
 
+    // --- Education Parsing ---
+    const educationBlockMatch = resumeContent.match(/EDUCATION\s*([\s\S]+?)(?=(?:PROJECT|CLUBS AND CHAPTERS|CERTIFICATES|$))/i);
+    const educationBlock = educationBlockMatch ? educationBlockMatch[1] : resumeContent; // If no explicit block, search whole resume
+
+    const resume10thPercentage = parseFloat(educationBlock.match(/Grade 10:\s*(\d+\.?\d*)%|Secondary School Examination.*?Percentage\s*:\s*(\d+\.?\d*)%/i)?.[1] || educationBlock.match(/Secondary School Examination.*?Percentage\s*:\s*(\d+\.?\d*)%/i)?.[2] || '0');
+    const resume12thPercentage = parseFloat(educationBlock.match(/Grade 12:\s*(\d+\.?\d*)%|Senior School Certificate Examination.*?Percentage\s*:\s*(\d+\.?\d*)%/i)?.[1] || educationBlock.match(/Senior School Certificate Examination.*?Percentage\s*:\s*(\d+\.?\d*)%/i)?.[2] || '0');
+    const resumeUGCGPA = parseFloat(educationBlock.match(/CGPA:\s*(\d+\.?\d*)|CGPA-(\d+\.?\d*)/i)?.[1] || educationBlock.match(/CGPA:\s*(\d+\.?\d*)|CGPA-(\d+\.?\d*)/i)?.[2] || '0');
+    const extractedDegrees = educationBlock.match(/(B\.Tech|M\.Tech|B\.S\.|M\.S\.|Ph\.D\.)(?: in [A-Za-z\s]+)?(?:.*?CGPA[-:]?\s*(\d+\.?\d*))?/g) || [];
+
     // Populate education array
-    if (resumeDetails.extractedDegrees.length > 0) education.push(...resumeDetails.extractedDegrees);
-    if (resumeDetails.resumeUGCGPA > 0) education.push(`UG CGPA: ${resumeDetails.resumeUGCGPA}`);
-    if (resumeDetails.resume12thPercentage > 0) education.push(`12th Grade: ${resumeDetails.resume12thPercentage}%`);
-    if (resumeDetails.resume10thPercentage > 0) education.push(`10th Grade: ${resumeDetails.resume10thPercentage}%`);
-    if (education.length === 0 && resumeContentLower.includes("education")) education.push("Education details present but not specifically parsed due to unclear format.");
+    if (extractedDegrees.length > 0) education.push(...extractedDegrees);
+    if (resumeUGCGPA > 0) education.push(`UG CGPA: ${resumeUGCGPA}`);
+    if (resume12thPercentage > 0) education.push(`12th Grade: ${resume12thPercentage}%`);
+    if (resume10thPercentage > 0) education.push(`10th Grade: ${resume10thPercentage}%`);
     if (education.length === 0) education.push("No specific education identified");
 
 
     // --- Enhanced Skill Extraction ---
     let identifiedSkills = new Set<string>();
-    // Add skills from the dedicated section
-    resumeDetails.extractedSkillsSection.forEach(skill => identifiedSkills.add(skill));
+
+    // Extract skills from the initial profile line
+    const profileSkillsMatch = resumeContent.match(/PROFILESoftware skills - (.*?)\.Programming Skills - (.*?)\./i);
+    if (profileSkillsMatch) {
+      const softwareSkills = profileSkillsMatch[1].split(',').map(s => s.trim()).filter(Boolean);
+      const programmingSkills = profileSkillsMatch[2].split(',').map(s => s.trim()).filter(Boolean);
+      [...softwareSkills, ...programmingSkills].forEach(skill => identifiedSkills.add(skill));
+    }
+
     // Add skills from certificates
     resumeDetails.extractedCertificates.forEach(cert => {
-        // Extract keywords from certificate names, e.g., "Python" from "The Complete Python Bootcamp"
         const certKeywords = cert.match(/(Python|Semiconductor devices|Project Management|Ethical Hacking|Vulnerability Analysis|Artificial Intelligence|Yolo v8|CNN|LM386|RF amplifier|VCO|tuning circuit|Multisim|Matlab|adaptive filtering)/i);
         if (certKeywords) {
             certKeywords.forEach(kw => identifiedSkills.add(kw));
@@ -120,8 +129,36 @@ const Index = () => {
     skills = Array.from(identifiedSkills);
     if (skills.length === 0) skills.push("No specific skills identified");
 
-    // Populate experience (projects are considered experience for interns)
-    experience = resumeDetails.extractedProjects.length > 0 ? resumeDetails.extractedProjects : [];
+    // --- Project/Experience Extraction ---
+    if (resumeDetails.extractedProjectsRaw) {
+      const projectParts = resumeDetails.extractedProjectsRaw.split(/(Pollin AI|Mobile jammer and detector device|Noise canceling headphones)/i);
+      let currentProject = "";
+      let tempProjects: string[] = [];
+
+      for (let i = 0; i < projectParts.length; i++) {
+        const part = projectParts[i].trim();
+        if (!part) continue;
+
+        // Check if this part is one of the recognized project titles
+        const isProjectTitle = part.toLowerCase().includes("pollin ai") || 
+                               part.toLowerCase().includes("mobile jammer") || 
+                               part.toLowerCase().includes("noise canceling headphones");
+
+        if (isProjectTitle) {
+          if (currentProject) {
+            tempProjects.push(currentProject.trim());
+          }
+          currentProject = part; // Start new project with this title
+        } else {
+          currentProject += (currentProject ? " " : "") + part; // Append to current project
+        }
+      }
+      if (currentProject) {
+        tempProjects.push(currentProject.trim());
+      }
+      experience = tempProjects.filter(Boolean);
+    }
+
     if (resumeDetails.extractedProfessionalExperience.length > 0) {
       experience = [...resumeDetails.extractedProfessionalExperience, ...experience];
     }
@@ -193,27 +230,27 @@ const Index = () => {
       baseScore += 1;
     }
 
-    if (jdCriteria.min10thPercentage > 0 && resumeDetails.resume10thPercentage < jdCriteria.min10thPercentage) {
-      scoreReasoning.push(`10th grade percentage (${resumeDetails.resume10thPercentage}%) is below required ${jdCriteria.min10thPercentage}%.`);
+    if (jdCriteria.min10thPercentage > 0 && resume10thPercentage < jdCriteria.min10thPercentage) {
+      scoreReasoning.push(`10th grade percentage (${resume10thPercentage}%) is below required ${jdCriteria.min10thPercentage}%.`);
       baseScore -= 2;
     } else if (jdCriteria.min10thPercentage > 0) {
-      scoreReasoning.push(`10th grade percentage (${resumeDetails.resume10thPercentage}%) meets/exceeds required ${jdCriteria.min10thPercentage}%.`);
+      scoreReasoning.push(`10th grade percentage (${resume10thPercentage}%) meets/exceeds required ${jdCriteria.min10thPercentage}%.`);
       baseScore += 1;
     }
 
-    if (jdCriteria.min12thPercentage > 0 && resumeDetails.resume12thPercentage < jdCriteria.min12thPercentage) {
-      scoreReasoning.push(`12th grade percentage (${resumeDetails.resume12thPercentage}%) is below required ${jdCriteria.min12thPercentage}%.`);
+    if (jdCriteria.min12thPercentage > 0 && resume12thPercentage < jdCriteria.min12thPercentage) {
+      scoreReasoning.push(`12th grade percentage (${resume12thPercentage}%) is below required ${jdCriteria.min12thPercentage}%.`);
       baseScore -= 2;
     } else if (jdCriteria.min12thPercentage > 0) {
-      scoreReasoning.push(`12th grade percentage (${resumeDetails.resume12thPercentage}%) meets/exceeds required ${jdCriteria.min12thPercentage}%.`);
+      scoreReasoning.push(`12th grade percentage (${resume12thPercentage}%) meets/exceeds required ${jdCriteria.min12thPercentage}%.`);
       baseScore += 1;
     }
 
-    if (jdCriteria.minUGCGPA > 0 && resumeDetails.resumeUGCGPA < jdCriteria.minUGCGPA) {
-      scoreReasoning.push(`UG CGPA (${resumeDetails.resumeUGCGPA}) is below required ${jdCriteria.minUGCGPA}.`);
+    if (jdCriteria.minUGCGPA > 0 && resumeUGCGPA < jdCriteria.minUGCGPA) {
+      scoreReasoning.push(`UG CGPA (${resumeUGCGPA}) is below required ${jdCriteria.minUGCGPA}.`);
       baseScore -= 3;
     } else if (jdCriteria.minUGCGPA > 0) {
-      scoreReasoning.push(`UG CGPA (${resumeDetails.resumeUGCGPA}) meets/exceeds required ${jdCriteria.minUGCGPA}.`);
+      scoreReasoning.push(`UG CGPA (${resumeUGCGPA}) meets/exceeds required ${jdCriteria.minUGCGPA}.`);
       baseScore += 2;
     }
 
@@ -380,6 +417,8 @@ shadcn/ui, and Tailwind CSS.
 data isolation and Deno-based Edge Functions. The core includes a strategy-engine processing live market
 data from the Twelve Data API and an AI assistant powered by a natural language command-parser.`,
       "Resume Aravind.pdf": `PROFILESoftware skills - Verilog HDL, MATLAB, and Simulation - Multisim.Programming Skills - Python, C, C++, HTML, CSS, Java, JavaScript, ReactJS. Soft Skills - Project Management, Team Work, Communication, Leadership.Volunteer experience - Technical and cultural fest organizing committee.SKILLS Vellore Institute of Technology Vellore, Tamilnadu
+B. Tech, Electronics and Communication Engineering February 2025-Present CGPA-8.00.SBOA School & Junior College Chennai, TamilnaduAll Indian Senior School Certificate Examination May - 2022Percentage : 85.0%SBOA School & Junior College Chennai, TamilnaduAll Indian Secondary School Examination May - 2020Percentage : 86.4%Dedicated third-year Electronics and Communication Engineering student with a stronginterest in core ECE technologies. Passionate about exploring digital marketing andcommitted to continuous learning and innovation in the tech industry.EDUCATIONPROJECTCLUBS AND CHAPTERS Senior Core Community Member in Tamil Literary Association (TLA) VIT and have organized and volunteered in many events.CERTIFICATESThe Complete Python Bootcamp From Zero to Hero in Python, Udemy.Electronics Foundations - Semiconductor devices, LinkedIn.Project Management Foundations, LinkedIn.Ethical Hacking: Vulnerability Analysis, LinkedIn. Introduction to Artificial Intelligence, LinkedIn.Pollin AIDeveloped an AI system to monitor pollinator activity (e.g., bees, butterflies) inagricultural environments.Applied object detection through the Yolo v8 algorithm and CNN.Using LM386 as a comparator circuit for detection and using an RF amplifier,VCO, and a tuning circuit for jamming purposes.Mobile jammer and detector device (Multisim) Noise canceling headphones (Matlab) Detection of noise generated using a sample input and removing any noiseabove voice frequency using adaptive filtering algorithms to provide noise-cancelled output.`,
+      "Vishakan_latest_August_resume.pdf": `PROFILESoftware skills - Verilog HDL, MATLAB, and Simulation - Multisim.Programming Skills - Python, C, C++, HTML, CSS, Java, JavaScript, ReactJS. Soft Skills - Project Management, Team Work, Communication, Leadership.Volunteer experience - Technical and cultural fest organizing committee.SKILLS Vellore Institute of Technology Vellore, Tamilnadu
 B. Tech, Electronics and Communication Engineering February 2025-Present CGPA-8.00.SBOA School & Junior College Chennai, TamilnaduAll Indian Senior School Certificate Examination May - 2022Percentage : 85.0%SBOA School & Junior College Chennai, TamilnaduAll Indian Secondary School Examination May - 2020Percentage : 86.4%Dedicated third-year Electronics and Communication Engineering student with a stronginterest in core ECE technologies. Passionate about exploring digital marketing andcommitted to continuous learning and innovation in the tech industry.EDUCATIONPROJECTCLUBS AND CHAPTERS Senior Core Community Member in Tamil Literary Association (TLA) VIT and have organized and volunteered in many events.CERTIFICATESThe Complete Python Bootcamp From Zero to Hero in Python, Udemy.Electronics Foundations - Semiconductor devices, LinkedIn.Project Management Foundations, LinkedIn.Ethical Hacking: Vulnerability Analysis, LinkedIn. Introduction to Artificial Intelligence, LinkedIn.Pollin AIDeveloped an AI system to monitor pollinator activity (e.g., bees, butterflies) inagricultural environments.Applied object detection through the Yolo v8 algorithm and CNN.Using LM386 as a comparator circuit for detection and using an RF amplifier,VCO, and a tuning circuit for jamming purposes.Mobile jammer and detector device (Multisim) Noise canceling headphones (Matlab) Detection of noise generated using a sample input and removing any noiseabove voice frequency using adaptive filtering algorithms to provide noise-cancelled output.`,
       // Add other mock resume contents here for different test cases if needed
     };
