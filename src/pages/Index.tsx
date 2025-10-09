@@ -5,6 +5,40 @@ import { Candidate } from "@/types";
 import { Separator } from "@/components/ui/separator";
 import { motion } from "framer-motion";
 
+// Define the comprehensive list of roles and their core keywords
+const ROLE_KEYWORDS: { [key: string]: string[] } = {
+  "Software Developer / Engineer": ["C", "C++", "Java", "Python", "JavaScript", "TypeScript", "Node.js", "React", "Angular", "Spring Boot", "Django", "Flask", "REST API", "Git", "CI/CD", "OOP", "Data Structures", "Algorithms", "SQL", "PostgreSQL", "MongoDB", "AWS", "Docker", "Kubernetes"],
+  "Frontend Developer": ["HTML", "CSS", "JavaScript", "TypeScript", "React", "Vue.js", "Next.js", "Redux", "Tailwind", "Bootstrap", "Figma", "UX", "Responsive Design", "Webpack", "API integration"],
+  "Backend Developer": ["Node.js", "Express", "Java", "Spring", "Python", "Flask", "FastAPI", "C#", ".NET", "SQL", "PostgreSQL", "MongoDB", "Redis", "RabbitMQ", "API design", "Microservices", "Authentication", "Scalability", "Cloud Deployment"],
+  "Full Stack Developer": [
+    "MERN", "MEAN", "LAMP", "DevOps", "GitHub Actions", "CI/CD", "API Security", "Docker", "GraphQL",
+    // Combined from Frontend and Backend
+    "HTML", "CSS", "JavaScript", "TypeScript", "React", "Vue.js", "Next.js", "Redux", "Tailwind", "Bootstrap", "Figma", "UX", "Responsive Design", "Webpack", "API integration",
+    "Node.js", "Express", "Java", "Spring", "Python", "Flask", "FastAPI", "C#", ".NET", "SQL", "PostgreSQL", "MongoDB", "Redis", "RabbitMQ", "API design", "Microservices", "Authentication", "Scalability", "Cloud Deployment"
+  ],
+  "DevOps Engineer": ["AWS", "Azure", "GCP", "Docker", "Kubernetes", "Terraform", "Jenkins", "CI/CD", "Linux", "Shell", "Ansible", "Prometheus", "Grafana", "Load Balancing", "Networking", "Monitoring", "Automation"],
+  "Mobile App Developer": ["Android", "Kotlin", "Java", "Jetpack Compose", "iOS", "Swift", "SwiftUI", "Flutter", "React Native", "Firebase", "Push Notifications", "Play Store", "App Store", "UI/UX"],
+  "Data Analyst": ["Excel", "Power BI", "Tableau", "SQL", "Data Cleaning", "EDA", "Pandas", "NumPy", "Statistics", "Visualization", "Business Insights", "Dashboards"],
+  "Data Scientist": ["Python", "R", "Pandas", "NumPy", "Scikit-learn", "Matplotlib", "Seaborn", "Regression", "Classification", "Clustering", "Feature Engineering", "Model Evaluation", "ML Pipelines", "Data Preprocessing", "Deep Learning", "NLP", "TensorFlow", "PyTorch", "Jupyter", "AWS Sagemaker", "MLflow"],
+  "Machine Learning Engineer": ["Python", "TensorFlow", "PyTorch", "Scikit-learn", "FastAPI", "MLflow", "Data Preprocessing", "Model Deployment", "MLOps", "Docker", "Kubernetes", "AWS", "Airflow", "Feature Store", "ONNX", "Inference Optimization", "Transformers", "BERT", "LLMs"],
+  "AI Engineer / NLP Engineer": ["Transformers", "BERT", "GPT", "Hugging Face", "LangChain", "RAG", "Prompt Engineering", "Vector Databases", "FAISS", "Pinecone", "LLM Fine-tuning", "Text Classification", "NER", "Sentiment Analysis", "Embeddings", "OpenAI API", "Speech Recognition", "TTS", "Computer Vision", "Diffusion Models"],
+  "Data Engineer": ["ETL", "Airflow", "Spark", "Kafka", "Data Pipeline", "BigQuery", "Snowflake", "AWS Glue", "Redshift", "HDFS", "Scala", "PySpark", "Batch Processing", "Data Lake", "Data Warehouse", "Scheduling", "SQL Optimization"],
+  "Cloud Engineer": ["AWS", "Azure", "GCP", "EC2", "S3", "Lambda", "CloudFormation", "Terraform", "Networking", "IAM", "Load Balancer", "DevOps", "CI/CD", "Monitoring", "Serverless", "Docker", "Kubernetes"],
+  "Site Reliability Engineer (SRE)": ["Monitoring", "Incident Response", "SLI/SLO", "Grafana", "Prometheus", "Logging", "Automation", "On-call", "Python", "Bash", "Kubernetes", "Observability", "System Design"],
+  "Business Analyst": ["Excel", "SQL", "Power BI", "Tableau", "Requirement Gathering", "Stakeholder Management", "Documentation", "UML", "Agile", "Data Interpretation", "Dashboards", "KPIs", "JIRA"],
+  "Product Manager": ["Roadmap", "User Stories", "Wireframes", "Analytics", "A/B Testing", "Feature Prioritization", "Agile", "Scrum", "Stakeholder", "Product Lifecycle", "UI/UX", "Figma", "KPI tracking"],
+  "Operations Analyst": ["Excel", "SQL", "Process Optimization", "Automation", "ERP", "Data Reporting", "Forecasting", "KPI tracking", "Workflow Analysis"],
+  "Embedded Systems Engineer": ["C", "C++", "RTOS", "Microcontrollers", "ARM", "STM32", "UART", "SPI", "I2C", "PCB Design", "Embedded C", "FreeRTOS", "Linux Kernel", "Device Drivers"],
+  "Hardware Design Engineer": ["VHDL", "Verilog", "FPGA", "ASIC", "SystemVerilog", "EDA Tools", "Cadence", "Synopsys", "RTL", "Simulation", "Synthesis"],
+  "IoT Engineer": ["Arduino", "Raspberry Pi", "MQTT", "LoRa", "Wi-Fi", "BLE", "ESP32", "Python", "C", "Node-RED", "Cloud Integration", "IoT Security", "Sensors"],
+  "Cybersecurity Engineer": ["Penetration Testing", "Vulnerability Assessment", "OWASP", "Burp Suite", "Metasploit", "Wireshark", "SIEM", "IDS/IPS", "SOC", "Incident Response", "Threat Analysis", "Firewalls", "Linux", "Python"],
+  "Network Engineer": ["CCNA", "Routing", "Switching", "Subnetting", "TCP/IP", "Firewalls", "Load Balancing", "VPN", "Cisco", "Juniper", "Network Monitoring", "Troubleshooting"],
+  "HR Executive": ["Recruitment", "Talent Acquisition", "Onboarding", "Payroll", "Employee Engagement", "HRMS", "Excel", "Policies", "Compliance", "Performance Management"],
+  "Digital Marketing Specialist": ["SEO", "SEM", "Google Ads", "Facebook Ads", "Analytics", "Content Marketing", "Email Campaigns", "A/B Testing", "Copywriting", "Social Media", "Keyword Research"],
+  "Finance Analyst": ["Excel", "Financial Modeling", "Budgeting", "Forecasting", "Accounting", "SQL", "Power BI", "SAP", "Valuation", "Balance Sheet", "Cash Flow", "Investment Analysis"],
+};
+
+
 const Index = () => {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [processing, setProcessing] = useState<boolean>(false);
@@ -43,7 +77,7 @@ const Index = () => {
       resume12thPercentage: parseFloat(resumeContent.match(/Grade 12: (\d+\.?\d*)%/)?.at(1) || '0'),
       resumeUGCGPA: parseFloat(resumeContent.match(/CGPA:\s*(\d+\.?\d*)/i)?.[1] || '0'),
       extractedDegrees: resumeContent.match(/(B\.Tech|M\.Tech|B\.S\.|M\.S\.|Ph\.D\.)(?: in [A-Za-z\s]+)?(?: \| CGPA: \d+\.?\d*)?/g) || [],
-      extractedSkills: resumeContent.match(/Technical Skills\s*([\s\S]+?)(?=(?:Projects:|Experience:|$))/i)?.[1]?.split(/•\s*|\n/).map(s => s.trim()).filter(Boolean) || [],
+      extractedSkillsSection: resumeContent.match(/Technical Skills\s*([\s\S]+?)(?=(?:Projects:|Experience:|$))/i)?.[1]?.split(/•\s*|\n/).map(s => s.trim()).filter(Boolean) || [],
       extractedProfessionalExperience: resumeContent.match(/Experience:\s*([\s\S]+?)(?=(?:Skills:|Education:|Projects:|$))/i)?.[1]?.split('\n').map(s => s.trim()).filter(Boolean) || [],
       extractedProjects: resumeContent.match(/Projects\s*([\s\S]+?)(?=(?:Skills:|Education:|Experience:|$))/i)?.[1]?.split(/•\s*|\n/).map(s => s.trim()).filter(Boolean) || [],
     };
@@ -53,23 +87,37 @@ const Index = () => {
     if (resumeDetails.resumeUGCGPA > 0) education.push(`UG CGPA: ${resumeDetails.resumeUGCGPA}`);
     if (resumeDetails.resume12thPercentage > 0) education.push(`12th Grade: ${resumeDetails.resume12thPercentage}%`);
     if (resumeDetails.resume10thPercentage > 0) education.push(`10th Grade: ${resumeDetails.resume10thPercentage}%`);
+    if (education.length === 0 && resumeContentLower.includes("education")) education.push("Education details present but not specifically parsed due to unclear format.");
     if (education.length === 0) education.push("No specific education identified");
 
-    // Populate skills and experience (projects are considered experience for interns)
-    skills = resumeDetails.extractedSkills.length > 0 ? resumeDetails.extractedSkills : ["No specific skills identified"];
-    experience = resumeDetails.extractedProjects.length > 0 ? resumeDetails.extractedProjects : ["No specific experience identified"];
+
+    // --- Enhanced Skill Extraction ---
+    let identifiedSkills = new Set<string>();
+    // Add skills from the dedicated section
+    resumeDetails.extractedSkillsSection.forEach(skill => identifiedSkills.add(skill));
+
+    // Scan resume content for keywords from ROLE_KEYWORDS
+    Object.values(ROLE_KEYWORDS).flat().forEach(keyword => {
+      if (resumeContentLower.includes(keyword.toLowerCase())) {
+        identifiedSkills.add(keyword);
+      }
+    });
+    skills = Array.from(identifiedSkills);
+    if (skills.length === 0) skills.push("No specific skills identified");
+
+    // Populate experience (projects are considered experience for interns)
+    experience = resumeDetails.extractedProjects.length > 0 ? resumeDetails.extractedProjects : [];
     if (resumeDetails.extractedProfessionalExperience.length > 0) {
       experience = [...resumeDetails.extractedProfessionalExperience, ...experience];
     }
+    if (experience.length === 0) experience.push("No specific experience identified");
 
 
     // --- Scoring Logic ---
     let baseScore = 5; // Start with a neutral score
 
     // 1. Education Eligibility & Scoring
-    let educationMet = true;
     if (jdCriteria.requiresEngineeringDegree && !education.some(edu => edu.toLowerCase().includes("b.tech") || edu.toLowerCase().includes("computer science") || edu.toLowerCase().includes("engineering"))) {
-      educationMet = false;
       scoreReasoning.push("Missing required Engineering degree.");
       baseScore -= 2;
     } else if (jdCriteria.requiresEngineeringDegree) {
@@ -78,7 +126,6 @@ const Index = () => {
     }
 
     if (jdCriteria.min10thPercentage > 0 && resumeDetails.resume10thPercentage < jdCriteria.min10thPercentage) {
-      educationMet = false;
       scoreReasoning.push(`10th grade percentage (${resumeDetails.resume10thPercentage}%) is below required ${jdCriteria.min10thPercentage}%.`);
       baseScore -= 2;
     } else if (jdCriteria.min10thPercentage > 0) {
@@ -87,7 +134,6 @@ const Index = () => {
     }
 
     if (jdCriteria.min12thPercentage > 0 && resumeDetails.resume12thPercentage < jdCriteria.min12thPercentage) {
-      educationMet = false;
       scoreReasoning.push(`12th grade percentage (${resumeDetails.resume12thPercentage}%) is below required ${jdCriteria.min12thPercentage}%.`);
       baseScore -= 2;
     } else if (jdCriteria.min12thPercentage > 0) {
@@ -96,7 +142,6 @@ const Index = () => {
     }
 
     if (jdCriteria.minUGCGPA > 0 && resumeDetails.resumeUGCGPA < jdCriteria.minUGCGPA) {
-      educationMet = false;
       scoreReasoning.push(`UG CGPA (${resumeDetails.resumeUGCGPA}) is below required ${jdCriteria.minUGCGPA}.`);
       baseScore -= 3;
     } else if (jdCriteria.minUGCGPA > 0) {
@@ -104,19 +149,8 @@ const Index = () => {
       baseScore += 2;
     }
 
-    if (jdCriteria.minPGCGPA > 0 && resumeDetails.resumePGCGPA < jdCriteria.minPGCGPA) {
-      educationMet = false;
-      scoreReasoning.push(`PG CGPA (${resumeDetails.resumePGCGPA}) is below required ${jdCriteria.minPGCGPA}.`);
-      baseScore -= 3;
-    } else if (jdCriteria.minPGCGPA > 0) {
-      scoreReasoning.push(`PG CGPA (${resumeDetails.resumePGCGPA}) meets/exceeds required ${jdCriteria.minPGCGPA}.`);
-      baseScore += 2;
-    }
-
     // 2. Experience Eligibility & Scoring
-    let experienceMet = true;
     if (jdCriteria.zeroExperienceCandidatesOnly && resumeDetails.extractedProfessionalExperience.length > 0) {
-      experienceMet = false;
       scoreReasoning.push("Candidate has professional experience, but job requires zero experience.");
       baseScore -= 4; // Significant deduction
     } else if (jdCriteria.zeroExperienceCandidatesOnly) {
@@ -195,16 +229,28 @@ const Index = () => {
 
     justification = `This candidate, ${candidateName}, received a score of ${matchScore}/10. Reasoning: ${scoreReasoning.join(" ")}.`;
     
-    // Determine suggested role based on skills/experience
-    if (skills.some(s => s.toLowerCase().includes("machine learning")) || skills.some(s => s.toLowerCase().includes("data science")) || skills.some(s => s.toLowerCase().includes("pytorch")) || skills.some(s => s.toLowerCase().includes("tensorflow"))) {
-      suggestedRole = "AI/ML Engineer Intern";
-    } else if (skills.some(s => s.toLowerCase().includes("react")) || skills.some(s => s.toLowerCase().includes("node.js")) || skills.some(s => s.toLowerCase().includes("full-stack"))) {
-      suggestedRole = "Full-stack Developer Intern";
-    } else if (skills.some(s => s.toLowerCase().includes("python")) || skills.some(s => s.toLowerCase().includes("java")) || skills.some(s => s.toLowerCase().includes("c++"))) {
-      suggestedRole = "Software Developer Intern";
-    } else {
-      suggestedRole = "Entry-Level Candidate";
+    // --- Determine suggested role based on comprehensive skills/experience ---
+    let bestRoleMatchCount = 0;
+    let potentialSuggestedRole = "Entry-Level Candidate"; // Default
+
+    const candidateCapabilities = new Set<string>();
+    skills.forEach(s => candidateCapabilities.add(s.toLowerCase()));
+    experience.forEach(exp => exp.split(/\s*,\s*|\s+/).forEach(word => candidateCapabilities.add(word.toLowerCase()))); // Break down experience into keywords
+
+    for (const role in ROLE_KEYWORDS) {
+      let currentRoleMatchCount = 0;
+      ROLE_KEYWORDS[role].forEach(keyword => {
+        if (candidateCapabilities.has(keyword.toLowerCase())) {
+          currentRoleMatchCount++;
+        }
+      });
+
+      if (currentRoleMatchCount > bestRoleMatchCount) {
+        bestRoleMatchCount = currentRoleMatchCount;
+        potentialSuggestedRole = role;
+      }
     }
+    suggestedRole = potentialSuggestedRole;
 
 
     return {
