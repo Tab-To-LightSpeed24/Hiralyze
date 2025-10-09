@@ -73,13 +73,14 @@ const Index = () => {
 
     // --- Simulate Resume Details Extraction ---
     const resumeDetails = {
-      resume10thPercentage: parseFloat(resumeContent.match(/Grade 10: (\d+\.?\d*)%/)?.at(1) || '0'),
-      resume12thPercentage: parseFloat(resumeContent.match(/Grade 12: (\d+\.?\d*)%/)?.at(1) || '0'),
-      resumeUGCGPA: parseFloat(resumeContent.match(/CGPA:\s*(\d+\.?\d*)/i)?.[1] || '0'),
-      extractedDegrees: resumeContent.match(/(B\.Tech|M\.Tech|B\.S\.|M\.S\.|Ph\.D\.)(?: in [A-Za-z\s]+)?(?: \| CGPA: \d+\.?\d*)?/g) || [],
-      extractedSkillsSection: resumeContent.match(/Technical Skills\s*([\s\S]+?)(?=(?:Projects:|Experience:|$))/i)?.[1]?.split(/•\s*|\n/).map(s => s.trim()).filter(Boolean) || [],
+      resume10thPercentage: parseFloat(resumeContent.match(/Grade 10:\s*(\d+\.?\d*)%|Secondary School Examination.*?Percentage\s*:\s*(\d+\.?\d*)%/i)?.[1] || resumeContent.match(/Secondary School Examination.*?Percentage\s*:\s*(\d+\.?\d*)%/i)?.[2] || '0'),
+      resume12thPercentage: parseFloat(resumeContent.match(/Grade 12:\s*(\d+\.?\d*)%|Senior School Certificate Examination.*?Percentage\s*:\s*(\d+\.?\d*)%/i)?.[1] || resumeContent.match(/Senior School Certificate Examination.*?Percentage\s*:\s*(\d+\.?\d*)%/i)?.[2] || '0'),
+      resumeUGCGPA: parseFloat(resumeContent.match(/CGPA:\s*(\d+\.?\d*)|CGPA-(\d+\.?\d*)/i)?.[1] || resumeContent.match(/CGPA:\s*(\d+\.?\d*)|CGPA-(\d+\.?\d*)/i)?.[2] || '0'),
+      extractedDegrees: resumeContent.match(/(B\.Tech|M\.Tech|B\.S\.|M\.S\.|Ph\.D\.)(?: in [A-Za-z\s]+)?(?:.*?CGPA[-:]?\s*(\d+\.?\d*))?/g) || [],
+      extractedSkillsSection: resumeContent.match(/Technical Skills\s*([\s\S]+?)(?=(?:Projects|CLUBS AND CHAPTERS|CERTIFICATES|EDUCATION|$))/i)?.[1]?.split(/•\s*|\n/).map(s => s.trim()).filter(Boolean) || [],
+      extractedCertificates: resumeContent.match(/CERTIFICATES\s*([\s\S]+?)(?=(?:Projects|CLUBS AND CHAPTERS|EDUCATION|$))/i)?.[1]?.split(/•\s*|\n/).map(s => s.trim()).filter(Boolean) || [],
       extractedProfessionalExperience: resumeContent.match(/Experience:\s*([\s\S]+?)(?=(?:Skills:|Education:|Projects:|$))/i)?.[1]?.split('\n').map(s => s.trim()).filter(Boolean) || [],
-      extractedProjects: resumeContent.match(/Projects\s*([\s\S]+?)(?=(?:Skills:|Education:|Experience:|$))/i)?.[1]?.split(/•\s*|\n/).map(s => s.trim()).filter(Boolean) || [],
+      extractedProjects: resumeContent.match(/PROJECTS?\s*([\s\S]+?)(?=(?:CLUBS AND CHAPTERS|CERTIFICATES|EDUCATION|$))/i)?.[1]?.split(/(?:\n\s*(?=[A-Z][a-z])|•\s*)/).map(s => s.trim()).filter(Boolean) || [], // Improved project parsing
     };
 
     // Populate education array
@@ -95,6 +96,14 @@ const Index = () => {
     let identifiedSkills = new Set<string>();
     // Add skills from the dedicated section
     resumeDetails.extractedSkillsSection.forEach(skill => identifiedSkills.add(skill));
+    // Add skills from certificates
+    resumeDetails.extractedCertificates.forEach(cert => {
+        // Extract keywords from certificate names, e.g., "Python" from "The Complete Python Bootcamp"
+        const certKeywords = cert.match(/(Python|Semiconductor devices|Project Management|Ethical Hacking|Vulnerability Analysis|Artificial Intelligence|Yolo v8|CNN|LM386|RF amplifier|VCO|tuning circuit|Multisim|Matlab|adaptive filtering)/i);
+        if (certKeywords) {
+            certKeywords.forEach(kw => identifiedSkills.add(kw));
+        }
+    });
 
     // Scan resume content for keywords from ROLE_KEYWORDS
     Object.values(ROLE_KEYWORDS).flat().forEach(keyword => {
@@ -311,6 +320,33 @@ shadcn/ui, and Tailwind CSS.
 • Architected a secure, serverless backend using Supabase, leveraging Postgres with Row Level Security for
 data isolation and Deno-based Edge Functions. The core includes a strategy-engine processing live market
 data from the Twelve Data API and an AI assistant powered by a natural language command-parser.`,
+      "Resume Aravind.pdf": `Vellore Institute of Technology Vellore, Tamilnadu
+B. Tech, Electronics and Communication Engineering February 2025-Present CGPA-8.00.
+SBOA School & Junior College Chennai, Tamilnadu
+All Indian Senior School Certificate Examination May - 2022
+Percentage : 85.0%
+SBOA School & Junior College Chennai, Tamilnadu
+All Indian Secondary School Examination May - 2020
+Percentage : 86.4%
+Dedicated third-year Electronics and Communication Engineering student with a strong
+interest in core ECE technologies. Passionate about exploring digital marketing and
+committed to continuous learning and innovation in the tech industry.
+EDUCATION
+PROJECT
+Pollin AI
+Developed an AI system to monitor pollinator activity (e.g., bees, butterflies) in
+agricultural environments.
+Applied object detection through the Yolo v8 algorithm and CNN.
+Using LM386 as a comparator circuit for detection and using an RF amplifier,
+VCO, and a tuning circuit for jamming purposes.
+Mobile jammer and detector device (Multisim) Noise canceling headphones (Matlab) Detection of noise generated using a sample input and removing any noise
+above voice frequency using adaptive filtering algorithms to provide noise-cancelled output.
+CLUBS AND CHAPTERS Senior Core Community Member in Tamil Literary Association (TLA) VIT and have organized and volunteered in many events.
+CERTIFICATES
+The Complete Python Bootcamp From Zero to Hero in Python, Udemy.
+Electronics Foundations - Semiconductor devices, LinkedIn.
+Project Management Foundations, LinkedIn.
+Ethical Hacking: Vulnerability Analysis, LinkedIn. Introduction to Artificial Intelligence, LinkedIn.`,
       // Add other mock resume contents here for different test cases if needed
     };
 
