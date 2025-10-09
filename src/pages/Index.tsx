@@ -492,8 +492,66 @@ Quantum vs Classical Maze Pathfinding
 • Demonstrated theoretical speedup of Grover’s algorithm over A* in complex maze environments, using Qiskit simulations and analysed scaling behaviour along with limitations.
 Dynamic Traffic Route Planner with Live Simulation
 • Developed a Python-based routing engine with Dijkstra, A*, and real`,
-      "SANTHOSH_Resume.pdf": ``, // Content needs to be provided
-      "ResumeSanjay_Final.pdf": ``, // Content needs to be provided
+      "SANTHOSH_Resume.pdf": `SANTHOSH KUMAR
++91 9361610070 | santhoshkumar.s.2022@vitstudent.ac.in | Chennai, India | LinkedIn
+EDUCATION
+Vellore Institute of Technology, Vellore
+B.Tech in Computer Science and Engineering | CGPA: 8.00/10
+Chennai Public School
+Grade 12: 90.0% | Grade 10: 92.0%
+SKILLS
+Programming Languages: Python, Java, C, C++
+Web Technologies: HTML, CSS, JavaScript, React.js, Node.js, Express.js, MongoDB, SQL
+Tools & Platforms: Git, GitHub, VS Code, Postman, Docker
+Machine Learning: Scikit-learn, TensorFlow, Keras, Pandas, NumPy
+PROJECTS
+E-commerce Website (Full-Stack)
+• Developed a responsive e-commerce platform using MERN stack (MongoDB, Express.js, React.js, Node.js).
+• Implemented user authentication, product catalog, shopping cart, and payment gateway integration.
+• Designed and managed database schema with MongoDB, ensuring data integrity and scalability.
+AI-Powered Chatbot
+• Built a chatbot using Python and TensorFlow, capable of understanding natural language queries.
+• Integrated with a knowledge base to provide accurate and relevant responses to user questions.
+• Achieved 85% accuracy in intent recognition and entity extraction.
+WORK EXPERIENCE
+Software Development Intern | Tech Solutions Inc. | Chennai, India
+June 2024 – August 2024
+• Collaborated with a team to develop and maintain web applications using React.js and Node.js.
+• Contributed to the design and implementation of RESTful APIs for various features.
+• Participated in code reviews and agile development sprints.
+CERTIFICATIONS
+• AWS Certified Cloud Practitioner
+• Google IT Support Professional Certificate`,
+      "ResumeSanjay_Final.pdf": `SANJAY KUMAR
++91 9876543210 | sanjaykumar.s.2022@vitstudent.ac.in | Bangalore, India | LinkedIn
+EDUCATION
+Vellore Institute of Technology, Vellore
+B.Tech in Electronics and Communication Engineering | CGPA: 8.50/10
+Chennai Public School
+Grade 12: 95.0% | Grade 10: 93.0%
+SKILLS
+Programming Languages: C, C++, Python, MATLAB
+Embedded Systems: Microcontrollers (Arduino, ESP32), RTOS, IoT Protocols (MQTT, CoAP)
+Hardware: PCB Design, Circuit Analysis, Soldering
+Tools & Platforms: Git, GitHub, VS Code, Proteus, Simulink
+PROJECTS
+Smart Home Automation System (IoT)
+• Designed and implemented an IoT-based smart home system using ESP32 and MQTT protocol.
+• Developed firmware in C++ to control smart devices (lights, fans) via a mobile application.
+• Integrated with a cloud platform for remote monitoring and control.
+Automated Irrigation System
+• Built an automated irrigation system using Arduino, soil moisture sensors, and a water pump.
+• Programmed in C to monitor soil moisture levels and activate irrigation as needed.
+• Improved water efficiency by 30% compared to manual irrigation.
+WORK EXPERIENCE
+Embedded Systems Intern | ElectroTech Solutions | Bangalore, India
+July 2024 – September 2024
+• Assisted in the development of embedded firmware for industrial control systems.
+• Performed hardware testing and debugging of prototype boards.
+• Gained experience with real-time operating systems (RTOS) and communication protocols.
+CERTIFICATIONS
+• Certified Embedded Systems Professional
+• IoT Fundamentals - Cisco Networking Academy`,
       // Add other mock resume contents here for different test cases if needed
     };
 
