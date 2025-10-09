@@ -62,6 +62,26 @@ const Index = () => {
     const resumeContentLower = resumeContent.toLowerCase();
     const jobDescriptionLower = jobDescription.toLowerCase();
 
+    // Helper to extract content between two markers
+    const extractContentBetween = (content: string, startMarker: string, endMarkers: string[]): string => {
+      const startRegex = new RegExp(`(?:^|\\n\\s*)${startMarker}\\s*`, 'i');
+      const startIndex = content.search(startRegex);
+      if (startIndex === -1) return "";
+
+      const contentAfterStart = content.substring(startIndex + content.match(startRegex)?.[0].length || 0);
+
+      let endIndex = -1;
+      for (const marker of endMarkers) {
+        const currentEndIndex = contentAfterStart.search(new RegExp(`\\n\\s*${marker}`, 'i'));
+        if (currentEndIndex !== -1 && (endIndex === -1 || currentEndIndex < endIndex)) {
+          endIndex = currentEndIndex;
+        }
+      }
+      return endIndex === -1 ? contentAfterStart.trim() : contentAfterStart.substring(0, endIndex).trim();
+    };
+
+    const allKnownHeaders = ["EDUCATION", "WORK EXPERIENCE", "EXPERIENCE", "PROJECTS", "SKILLS", "TECHNICAL SKILLS", "CERTIFICATIONS", "PROFILE", "CLUBS AND CHAPTERS"];
+
     // --- Simulate JD Eligibility Criteria Parsing ---
     const jdCriteria = {
       min10thPercentage: parseFloat(jobDescription.match(/10th grade min (\d+\.?\d*)%/)?.at(1) || '0'),
@@ -82,45 +102,50 @@ const Index = () => {
     let resume12thPercentage = 0;
     let resumeUGCGPA = 0;
 
-    const educationBlockMatch = resumeContent.match(/EDUCATION\s*([\s\S]+?)(?=(?:WORK EXPERIENCE|PROJECTS|SKILLS|CERTIFICATIONS|$))/i);
-    if (educationBlockMatch) {
-      const educationBlock = educationBlockMatch[1];
-      const universityDegreeMatch = educationBlock.match(/(Vellore Institute of Technology,.*?B\. Tech in Computer Science Engineering.*?CGPA:\s*(\d+\.?\d*)\/10)/i);
-      if (universityDegreeMatch) {
-        education.push(universityDegreeMatch[1].trim());
-        resumeUGCGPA = parseFloat(universityDegreeMatch[2]);
+    const educationSectionContent = extractContentBetween(resumeContent, "EDUCATION", allKnownHeaders.filter(h => h !== "EDUCATION"));
+
+    if (educationSectionContent) {
+      // Extract University/Degree
+      const universityDegreeMatches = educationSectionContent.matchAll(/(.*?B\.?Tech.*?|.*?B\.?S\.?.*?|.*?M\.?Tech.*?|.*?M\.?S\.?.*?|.*?Ph\.?D\.?.*?)(?: in [A-Za-z\s]+)?(?:.*?CGPA[-:]?\s*(\d+\.?\d*))?/gi);
+      for (const match of universityDegreeMatches) {
+        if (match[0]) education.push(match[0].trim());
+        if (match[1]) resumeUGCGPA = parseFloat(match[1]); // Capture CGPA if present with degree
       }
-      const grade12Match = educationBlock.match(/(Chennai Public School.*?Grade 12:\s*(\d+\.?\d*)%)/i);
+
+      // Extract CGPA if not already captured
+      if (resumeUGCGPA === 0) {
+        const cgpaMatch = educationSectionContent.match(/CGPA[-:]?\s*(\d+\.?\d*)/i);
+        if (cgpaMatch) resumeUGCGPA = parseFloat(cgpaMatch[1]);
+      }
+
+      // Extract 12th grade percentage
+      const grade12Match = educationSectionContent.match(/(?:Grade 12|Senior School Certificate Examination).*?(\d+\.?\d*)%/i);
       if (grade12Match) {
-        education.push(grade12Match[1].trim());
-        resume12thPercentage = parseFloat(grade12Match[2]);
+        resume12thPercentage = parseFloat(grade12Match[1]);
+        education.push(`Grade 12: ${resume12thPercentage}%`);
       }
-      const grade10Match = educationBlock.match(/(Chennai Public School.*?Grade 10:\s*(\d+\.?\d*)%)/i);
+
+      // Extract 10th grade percentage
+      const grade10Match = educationSectionContent.match(/(?:Grade 10|Secondary School Examination).*?(\d+\.?\d*)%/i);
       if (grade10Match) {
-        education.push(grade10Match[1].trim());
-        resume10thPercentage = parseFloat(grade10Match[2]);
-      }
-    }
-    // For Vishakan's resume, which has a different education format
-    if (education.length === 0 && resumeFileName === "Vishakan_latest_August_resume.pdf") {
-      const vishakanEduMatch = resumeContent.match(/EDUCATION\s*Vellore Institute of Technology, Vellore.*?B\. Tech in Computer Science Engineering.*?CGPA:\s*(\d+\.?\d*)\/10.*?Chennai Public School.*?Grade 12:\s*(\d+\.?\d*)%.*?Grade 10:\s*(\d+\.?\d*)%/is);
-      if (vishakanEduMatch) {
-        education.push("Vellore Institute of Technology, B. Tech in Computer Science Engineering");
-        resumeUGCGPA = parseFloat(vishakanEduMatch[1]);
-        education.push("Chennai Public School, Grade 12");
-        resume12thPercentage = parseFloat(vishakanEduMatch[2]);
-        education.push("Chennai Public School, Grade 10");
-        resume10thPercentage = parseFloat(vishakanEduMatch[3]);
+        resume10thPercentage = parseFloat(grade10Match[1]);
+        education.push(`Grade 10: ${resume10thPercentage}%`);
       }
     }
     if (education.length === 0) education.push("No specific education identified");
 
+
     // --- Skill Extraction ---
     let identifiedSkills = new Set<string>();
-    const skillsBlockMatch = resumeContent.match(/SKILLS\s*([\s\S]+?)(?=(?:EDUCATION|WORK EXPERIENCE|PROJECTS|CERTIFICATIONS|$))/i);
-    if (skillsBlockMatch) {
-      const skillsBlock = skillsBlockMatch[1];
-      const skillLines = skillsBlock.split(/•\s*/).map(s => s.trim()).filter(Boolean);
+    const skillsSectionContent = extractContentBetween(resumeContent, "SKILLS", allKnownHeaders.filter(h => h !== "SKILLS"));
+    const technicalSkillsSectionContent = extractContentBetween(resumeContent, "TECHNICAL SKILLS", allKnownHeaders.filter(h => h !== "TECHNICAL SKILLS"));
+    const profileSectionContent = extractContentBetween(resumeContent, "PROFILE", allKnownHeaders.filter(h => h !== "PROFILE"));
+    const certificationsSectionContent = extractContentBetween(resumeContent, "CERTIFICATIONS", allKnownHeaders.filter(h => h !== "CERTIFICATIONS"));
+
+    // Parse skills from SKILLS or TECHNICAL SKILLS sections
+    const parseSkillsBlock = (blockContent: string) => {
+      if (!blockContent) return;
+      const skillLines = blockContent.split(/•\s*|\n/).map(s => s.trim()).filter(Boolean);
       skillLines.forEach(line => {
         const parts = line.split(':');
         if (parts.length > 1) {
@@ -130,30 +155,25 @@ const Index = () => {
           line.split(',').map(s => s.trim()).filter(Boolean).forEach(skill => identifiedSkills.add(skill));
         }
       });
-    }
-    // For Vishakan's resume, which has a different skills format
-    if (identifiedSkills.size === 0 && resumeFileName === "Vishakan_latest_August_resume.pdf") {
-      const vishakanSkillsMatch = resumeContent.match(/SKILLS\s*• Programming: (.*?)\.\s*• Cloud Computing: (.*?)\.\s*• ML, DL&AI: (.*?)\.\s*• Data Handling and Visualization: (.*?)\.\s*• Languages: (.*?)\./is);
-      if (vishakanSkillsMatch) {
-        const programming = vishakanSkillsMatch[1].split(',').map(s => s.trim()).filter(Boolean);
-        const cloud = vishakanSkillsMatch[2].split(',').map(s => s.trim()).filter(Boolean);
-        const mlDlAi = vishakanSkillsMatch[3].split(',').map(s => s.trim()).filter(Boolean);
-        const dataHandling = vishakanSkillsMatch[4].split(',').map(s => s.trim()).filter(Boolean);
-        [...programming, ...cloud, ...mlDlAi, ...dataHandling].forEach(skill => identifiedSkills.add(skill));
-      }
-    }
+    };
 
+    parseSkillsBlock(skillsSectionContent);
+    parseSkillsBlock(technicalSkillsSectionContent);
+
+    // Extract skills from PROFILE section (e.g., "PROFILESoftware skills - ..., Programming Skills - ...")
+    const profileSkillsMatch = profileSectionContent.match(/Software skills - (.*?)\.Programming Skills - (.*?)\./i);
+    if (profileSkillsMatch) {
+      const softwareSkills = profileSkillsMatch[1].split(',').map(s => s.trim()).filter(Boolean);
+      const programmingSkills = profileSkillsMatch[2].split(',').map(s => s.trim()).filter(Boolean);
+      [...softwareSkills, ...programmingSkills].forEach(skill => identifiedSkills.add(skill));
+    }
 
     // Extract skills from CERTIFICATIONS
-    const certificationsBlockMatch = resumeContent.match(/CERTIFICATIONS\s*([\s\S]+?)(?=(?:WORK EXPERIENCE|PROJECTS|SKILLS|EDUCATION|$))/i);
-    if (certificationsBlockMatch) {
-      const certs = certificationsBlockMatch[1].split(/•\s*/).map(s => s.trim()).filter(Boolean);
-      certs.forEach(cert => {
-        const certKeywords = cert.match(/(AWS Cloud Practitioner|IBM AI Engineering Professional|Data Analytics|Amazon Web Services|Artificial Intelligence|Machine Learning)/i);
-        if (certKeywords) {
-          certKeywords.forEach(kw => identifiedSkills.add(kw));
-        }
-      });
+    if (certificationsSectionContent) {
+      const certKeywords = certificationsSectionContent.match(/(AWS Cloud Practitioner|IBM AI Engineering Professional|Data Analytics|Amazon Web Services|Artificial Intelligence|Machine Learning|Python|Semiconductor devices|Project Management|Ethical Hacking|Vulnerability Analysis|Yolo v8|CNN|LM386|RF amplifier|VCO|tuning circuit|Multisim|Matlab|adaptive filtering)/gi);
+      if (certKeywords) {
+        certKeywords.forEach(kw => identifiedSkills.add(kw));
+      }
     }
 
     // Scan resume content for keywords from ROLE_KEYWORDS
@@ -168,40 +188,22 @@ const Index = () => {
     // --- Experience Parsing ---
     const tempExperience: string[] = [];
 
-    const parseSectionContent = (sectionContent: string) => {
-      const entries: string[] = [];
-      const lines = sectionContent.split('\n').map(l => l.trim()).filter(Boolean);
-      let currentEntryLines: string[] = [];
-
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const isBullet = line.startsWith('•');
-
-        if (isBullet) {
-          currentEntryLines.push(line.substring(1).trim());
-        } else {
-          if (currentEntryLines.length > 0) {
-            entries.push(currentEntryLines.join(' '));
-            currentEntryLines = [];
-          }
-          currentEntryLines.push(line);
-        }
-      }
-      if (currentEntryLines.length > 0) {
-        entries.push(currentEntryLines.join(' '));
-      }
-      return entries;
+    const parseBulletPoints = (text: string): string[] => {
+      return text.split(/•\s*|\n(?=\s*[A-Z][a-z]+(?: [A-Z][a-z]+)*:)/) // Split by bullet or new line followed by a potential header
+                 .map(line => line.trim())
+                 .filter(Boolean);
     };
 
-    const workExperienceBlockMatch = resumeContent.match(/WORK EXPERIENCE\s*([\s\S]+?)(?=(?:CERTIFICATIONS|PROJECTS|SKILLS|EDUCATION|$))/i);
-    if (workExperienceBlockMatch) {
-      tempExperience.push(...parseSectionContent(workExperienceBlockMatch[1]));
+    const workExperienceSectionContent = extractContentBetween(resumeContent, "WORK EXPERIENCE", allKnownHeaders.filter(h => h !== "WORK EXPERIENCE"));
+    if (workExperienceSectionContent) {
+      tempExperience.push(...parseBulletPoints(workExperienceSectionContent));
     }
 
-    const projectsBlockMatch = resumeContent.match(/PROJECTS\s*([\s\S]+?)(?=(?:SKILLS|EDUCATION|WORK EXPERIENCE|CERTIFICATIONS|$))/i);
-    if (projectsBlockMatch) {
-      tempExperience.push(...parseSectionContent(projectsBlockMatch[1]));
+    const projectsSectionContent = extractContentBetween(resumeContent, "PROJECTS", allKnownHeaders.filter(h => h !== "PROJECTS"));
+    if (projectsSectionContent) {
+      tempExperience.push(...parseBulletPoints(projectsSectionContent));
     }
+    
     experience = tempExperience;
     if (experience.length === 0) experience.push("No specific experience identified");
 
@@ -261,7 +263,7 @@ const Index = () => {
     // --- Scoring Logic (only if shortlisted) ---
     let baseScore = 5;
 
-    if (jdCriteria.requiresEngineeringDegree && !education.some(edu => edu.toLowerCase().includes("b.tech") || edu.toLowerCase().includes("computer science engineering"))) {
+    if (jdCriteria.requiresEngineeringDegree && !education.some(edu => edu.toLowerCase().includes("b.tech") || edu.toLowerCase().includes("computer science engineering") || edu.toLowerCase().includes("electronics and communication engineering"))) {
       scoreReasoning.push("Missing required Engineering degree.");
       baseScore -= 2;
     } else if (jdCriteria.requiresEngineeringDegree) {
@@ -490,6 +492,8 @@ Quantum vs Classical Maze Pathfinding
 • Demonstrated theoretical speedup of Grover’s algorithm over A* in complex maze environments, using Qiskit simulations and analysed scaling behaviour along with limitations.
 Dynamic Traffic Route Planner with Live Simulation
 • Developed a Python-based routing engine with Dijkstra, A*, and real`,
+      "SANTHOSH_Resume.pdf": ``, // Content needs to be provided
+      "ResumeSanjay_Final.pdf": ``, // Content needs to be provided
       // Add other mock resume contents here for different test cases if needed
     };
 
