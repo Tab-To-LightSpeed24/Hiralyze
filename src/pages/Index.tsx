@@ -28,46 +28,58 @@ const Index = () => {
       requiresEducation: jobDescription.toLowerCase().includes("bachelor's degree") || jobDescription.toLowerCase().includes("education required") || jobDescription.toLowerCase().includes("degree in"),
     };
 
-    // --- Simulate Resume Education Details Extraction ---
+    // --- Simulate Resume Details Extraction ---
     const resumeDetails = {
       hasEducationSection: resumeContent.toLowerCase().includes("education:") || resumeContent.toLowerCase().includes("academic background"),
-      resume10thPercentage: parseFloat(resumeContent.match(/10th grade: (\d+\.?\d*)%/)?.at(1) || '0'),
-      resume12thPercentage: parseFloat(resumeContent.match(/12th grade: (\d+\.?\d*)%/)?.at(1) || '0'),
+      resume10thPercentage: parseFloat(resumeContent.match(/10th Grade: (\d+\.?\d*)%/)?.at(1) || '0'),
+      resume12thPercentage: parseFloat(resumeContent.match(/12th Grade: (\d+\.?\d*)%/)?.at(1) || '0'),
       resumeUGCGPA: parseFloat(resumeContent.match(/UG CGPA:? (\d+\.?\d*)/)?.at(1) || '0'),
       resumePGCGPA: parseFloat(resumeContent.match(/PG CGPA:? (\d+\.?\d*)/)?.at(1) || '0'),
-      extractedDegrees: resumeContent.match(/(B\.S\.|M\.S\.|Ph\.D\.) in [A-Za-z\s]+(?:, \d{4})?/g) || [],
+      extractedDegrees: resumeContent.match(/(M\.Tech|B\.Tech|B\.S\.|M\.S\.|Ph\.D\.) in [A-Za-z\s]+(?:, \d{4})?/g) || [],
+      extractedSkills: resumeContent.match(/Skills:\s*([\w\s,.-]+)/i)?.[1]?.split(',').map(s => s.trim()).filter(Boolean) || [],
+      extractedExperience: resumeContent.match(/Experience:\s*([\s\S]+?)(?=(?:Skills:|Education:|$))/i)?.[1]?.split('\n').map(s => s.trim()).filter(Boolean) || [],
     };
 
     // Populate education array if found
     if (resumeDetails.hasEducationSection || resumeDetails.extractedDegrees.length > 0 || resumeDetails.resumeUGCGPA > 0) {
       if (resumeDetails.extractedDegrees.length > 0) education.push(...resumeDetails.extractedDegrees);
-      if (resumeDetails.resumeUGCGPA > 0) education.push(`UG CGPA: ${resumeDetails.resumeUGCGPA}`);
       if (resumeDetails.resumePGCGPA > 0) education.push(`PG CGPA: ${resumeDetails.resumePGCGPA}`);
+      if (resumeDetails.resumeUGCGPA > 0) education.push(`UG CGPA: ${resumeDetails.resumeUGCGPA}`);
       if (resumeDetails.resume12thPercentage > 0) education.push(`12th Grade: ${resumeDetails.resume12thPercentage}%`);
       if (resumeDetails.resume10thPercentage > 0) education.push(`10th Grade: ${resumeDetails.resume10thPercentage}%`);
-      if (education.length === 0 && resumeDetails.hasEducationSection) education.push("Education details present but not specifically parsed.");
+      if (education.length === 0 && resumeDetails.hasEducationSection) education.push("Education details present but not specifically parsed due to unclear format.");
     }
+
+    // Populate skills and experience
+    skills = resumeDetails.extractedSkills.length > 0 ? resumeDetails.extractedSkills : ["General Technical Skills"];
+    experience = resumeDetails.extractedExperience.length > 0 ? resumeDetails.extractedExperience : ["Experience details not explicitly parsed or limited."];
 
 
     // --- Strict Validity Checks ---
     let rejected = false;
     let rejectionReason = "";
+    let scoreReasoning: string[] = [];
 
     if (jdCriteria.requiresEducation && !resumeDetails.hasEducationSection && resumeDetails.extractedDegrees.length === 0) {
       rejected = true;
       rejectionReason = `Resume rejected: Missing basic qualification (Education) required by the job description.`;
+      scoreReasoning.push("Mandatory education not found.");
     } else if (jdCriteria.min10thPercentage > 0 && resumeDetails.resume10thPercentage < jdCriteria.min10thPercentage) {
       rejected = true;
       rejectionReason = `Resume rejected: 10th grade percentage (${resumeDetails.resume10thPercentage}%) is below the required ${jdCriteria.min10thPercentage}%.`;
+      scoreReasoning.push(`10th grade percentage (${resumeDetails.resume10thPercentage}%) below required ${jdCriteria.min10thPercentage}%.`);
     } else if (jdCriteria.min12thPercentage > 0 && resumeDetails.resume12thPercentage < jdCriteria.min12thPercentage) {
       rejected = true;
       rejectionReason = `Resume rejected: 12th grade percentage (${resumeDetails.resume12thPercentage}%) is below the required ${jdCriteria.min12thPercentage}%.`;
+      scoreReasoning.push(`12th grade percentage (${resumeDetails.resume12thPercentage}%) below required ${jdCriteria.min12thPercentage}%.`);
     } else if (jdCriteria.minUGCGPA > 0 && resumeDetails.resumeUGCGPA < jdCriteria.minUGCGPA) {
       rejected = true;
       rejectionReason = `Resume rejected: UG CGPA (${resumeDetails.resumeUGCGPA}) is below the required ${jdCriteria.minUGCGPA}.`;
+      scoreReasoning.push(`UG CGPA (${resumeDetails.resumeUGCGPA}) below required ${jdCriteria.minUGCGPA}.`);
     } else if (jdCriteria.minPGCGPA > 0 && resumeDetails.resumePGCGPA < jdCriteria.minPGCGPA) {
       rejected = true;
       rejectionReason = `Resume rejected: PG CGPA (${resumeDetails.resumePGCGPA}) is below the required ${jdCriteria.minPGCGPA}.`;
+      scoreReasoning.push(`PG CGPA (${resumeDetails.resumePGCGPA}) below required ${jdCriteria.minPGCGPA}.`);
     }
 
     if (rejected) {
@@ -79,45 +91,73 @@ const Index = () => {
         experience: [],
         education: [],
         matchScore: 0,
-        justification: rejectionReason + " Please ensure the resume meets all eligibility criteria.",
+        justification: rejectionReason + " Please ensure the resume meets all eligibility criteria. " + scoreReasoning.join(" "),
         resumeFileName: resumeFileName,
         suggestedRole: "N/A - Not Eligible",
       };
     }
 
-    // --- Simulate parsing for the given single sentence resume content ---
-    // For the specific test case: "Senior Software Engineer with 6 years experience. Proficient in React.js, Node.js, and AWS cloud services. Proven track record of solving complex technical challenges."
-    if (resumeContent.includes("Senior Software Engineer") && resumeContent.includes("React.js") && resumeContent.includes("Node.js") && resumeContent.includes("AWS cloud services")) {
-      skills = ["React.js", "Node.js", "AWS Cloud Services", "Problem Solving"];
-      experience = ["Senior Software Engineer (6 years)", "Proven track record in complex technical challenges"];
-      
-      justification = `This candidate, ${candidateName}, shows strong alignment with the technical requirements (React.js, Node.js, AWS) and experience level (Senior Software Engineer, 6 years).`;
-      matchScore = Math.floor(Math.random() * 3) + 7; // Still a good score for strong technical match
+    // --- Scoring Logic (if not rejected) ---
+    let baseScore = 5; // Starting point for a decent resume
 
-      if (!resumeDetails.hasEducationSection && resumeDetails.extractedDegrees.length === 0) {
-        justification += ` However, explicit education details were not clearly identified, which might limit a full assessment. Consider a more structured resume format.`;
-        matchScore = Math.max(1, matchScore - 2); // Deduct points for missing explicit education
-        suggestedRole = "Senior Software Engineer (Education Review Needed)";
-      } else {
-        justification += ` Their educational background further strengthens their profile.`;
-        suggestedRole = "Lead Software Architect";
-      }
+    // Adjust score based on skills
+    if (skills.includes("Python") && skills.includes("Machine Learning")) {
+      baseScore += 2; // High relevance for data science roles
+      scoreReasoning.push("Strong core skills (Python, ML) identified.");
+    } else if (skills.includes("React.js") && skills.includes("Node.js")) {
+      baseScore += 2; // High relevance for full-stack roles
+      scoreReasoning.push("Strong core skills (React.js, Node.js) identified.");
+    } else if (skills.length > 2 && !skills.includes("General Technical Skills")) {
+      baseScore += 1; // Some specific skills found
+      scoreReasoning.push("Multiple specific skills identified.");
     } else {
-      // Generic handling for other brief/unstructured resumes
-      skills = ["General Technical Skills"];
-      experience = ["Limited experience details"];
-      matchScore = Math.floor(Math.random() * 4) + 3; // Lower score for less detail
-      justification = `This resume (${resumeFileName}) provides some relevant keywords but lacks detailed sections for a comprehensive assessment.`;
-      if (!resumeDetails.hasEducationSection && resumeDetails.extractedDegrees.length === 0) {
-        justification += ` Education details were not clearly identified.`;
-      }
-      justification += ` Consider a more structured resume format for better analysis.`;
-      suggestedRole = "Technical Support Specialist";
+      scoreReasoning.push("Limited specific skills identified, relying on general technical aptitude.");
     }
 
-    // Add a warning for badly formatted sections if education was found but not fully parsed
-    if (resumeDetails.hasEducationSection && education.length === 0 && !rejected) {
-      justification += ` Warning: Education section found but format was not clearly parsable for specific details.`;
+    // Adjust score based on experience
+    if (experience.some(exp => exp.includes("Senior Software Engineer") || exp.includes("Data Scientist"))) {
+      baseScore += 2;
+      scoreReasoning.push("Relevant senior-level experience detected.");
+    } else if (experience.some(exp => exp.includes("years experience"))) {
+      baseScore += 1;
+      scoreReasoning.push("General work experience noted.");
+    } else {
+      scoreReasoning.push("Experience details are brief or not clearly structured.");
+    }
+
+    // Adjust score based on education
+    if (education.length > 0 && !education.includes("Education details present but not specifically parsed due to unclear format.")) {
+      baseScore += 1;
+      scoreReasoning.push("Educational background is present and parsed.");
+      if (resumeDetails.resumePGCGPA >= jdCriteria.minPGCGPA && jdCriteria.minPGCGPA > 0) {
+        baseScore += 1;
+        scoreReasoning.push(`PG CGPA (${resumeDetails.resumePGCGPA}) meets/exceeds requirement.`);
+      }
+      if (resumeDetails.resumeUGCGPA >= jdCriteria.minUGCGPA && jdCriteria.minUGCGPA > 0) {
+        baseScore += 1;
+        scoreReasoning.push(`UG CGPA (${resumeDetails.resumeUGCGPA}) meets/exceeds requirement.`);
+      }
+    } else if (resumeDetails.hasEducationSection && education.includes("Education details present but not specifically parsed due to unclear format.")) {
+      scoreReasoning.push("Education section found but format was not clearly parsable for specific details, impacting score slightly.");
+      baseScore = Math.max(1, baseScore - 1); // Deduct for poor formatting
+    } else {
+      scoreReasoning.push("No explicit education details found, impacting score.");
+      baseScore = Math.max(1, baseScore - 2); // Deduct more for missing education
+    }
+
+    matchScore = Math.min(10, Math.max(1, baseScore)); // Cap score between 1 and 10
+
+    justification = `This candidate, ${candidateName}, received a score of ${matchScore}/10. Reasoning: ${scoreReasoning.join(" ")}.`;
+    
+    // Determine suggested role based on skills/experience
+    if (skills.includes("Python") && skills.includes("Machine Learning")) {
+      suggestedRole = "Senior Data Scientist";
+    } else if (skills.includes("React.js") && skills.includes("Node.js")) {
+      suggestedRole = "Full-stack Software Engineer";
+    } else if (experience.some(exp => exp.includes("Project Manager"))) {
+      suggestedRole = "Project Lead";
+    } else {
+      suggestedRole = "Technical Specialist";
     }
 
 
@@ -146,6 +186,23 @@ const Index = () => {
       "another_resume.pdf": "Junior Developer with 2 years experience in JavaScript. Education: B.S. in Information Technology, 6.5 CGPA. 12th grade: 70%.",
       "no_education.pdf": "Experienced Project Manager with 10 years in agile environments. Led multiple successful product launches.",
       "poorly_formatted_edu.pdf": "Project Lead. Experience in team management. Education section: University of XYZ, Graduated 2010. No specific grades mentioned.",
+      "Kaushik_resume_8.pdf": `Kaushik Sharma
+Email: kaushik.sharma@example.com
+
+Education:
+M.Tech in Data Science, IIT Delhi (2022) - PG CGPA: 9.2
+B.Tech in Computer Engineering, NIT Warangal (2020) - UG CGPA: 8.8
+12th Grade: 95% (2016)
+10th Grade: 90% (2014)
+
+Experience:
+Data Scientist at Tech Solutions (2 years)
+- Developed machine learning models using Python, TensorFlow, and PyTorch.
+- Implemented data pipelines with Apache Spark and AWS Glue.
+- Led a project on predictive analytics, improving forecast accuracy by 15%.
+
+Skills:
+Python, R, SQL, TensorFlow, PyTorch, Scikit-learn, AWS, Azure, Docker, Kubernetes, Machine Learning, Deep Learning, Data Analysis, Big Data, Predictive Modeling.`,
       // Add other mock resume contents here for different test cases if needed
     };
 
