@@ -19,7 +19,8 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes })
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
-      setResumeFiles(Array.from(event.target.files));
+      // Append new files instead of replacing existing ones
+      setResumeFiles(prevFiles => [...prevFiles, ...Array.from(event.target.files)]);
     }
   };
 

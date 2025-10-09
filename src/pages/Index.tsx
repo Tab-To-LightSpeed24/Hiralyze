@@ -28,7 +28,12 @@ const ROLE_KEYWORDS: { [key: string]: string[] } = {
   "Business Analyst": ["Excel", "SQL", "Power BI", "Tableau", "Requirement Gathering", "Stakeholder Management", "Documentation", "UML", "Agile", "Data Interpretation", "Dashboards", "KPIs", "JIRA"],
   "Product Manager": ["Roadmap", "User Stories", "Wireframes", "Analytics", "A/B Testing", "Feature Prioritization", "Agile", "Scrum", "Stakeholder", "Product Lifecycle", "UI/UX", "Figma", "KPI tracking"],
   "Operations Analyst": ["Excel", "SQL", "Process Optimization", "Automation", "ERP", "Data Reporting", "Forecasting", "KPI tracking", "Workflow Analysis"],
-  "Embedded Systems Engineer": ["C", "C++", "RTOS", "Microcontrollers", "ARM", "STM32", "UART", "SPI", "I2C", "PCB Design", "Embedded C", "FreeRTOS", "Linux Kernel", "Device Drivers", "Verilog", "MATLAB", "Multisim", "LM386", "RF amplifier", "VCO", "tuning circuit", "Semiconductor devices", "Electronics and Communication Engineering"],
+  "Embedded Systems Engineer": [
+    "C", "C++", "RTOS", "Microcontrollers", "ARM", "STM32", "UART", "SPI", "I2C", "PCB Design",
+    "Embedded C", "FreeRTOS", "Linux Kernel", "Device Drivers", "Verilog", "MATLAB", "Multisim",
+    "LM386", "RF amplifier", "VCO", "tuning circuit", "Semiconductor devices",
+    "Electronics and Communication Engineering", "Python", "Yolo v8", "CNN", "adaptive filtering"
+  ],
   "Hardware Design Engineer": ["VHDL", "Verilog", "FPGA", "ASIC", "SystemVerilog", "EDA Tools", "Cadence", "Synopsys", "RTL", "Simulation", "Synthesis"],
   "IoT Engineer": ["Arduino", "Raspberry Pi", "MQTT", "LoRa", "Wi-Fi", "BLE", "ESP32", "Python", "C", "Node-RED", "Cloud Integration", "IoT Security", "Sensors"],
   "Cybersecurity Engineer": ["Penetration Testing", "Vulnerability Assessment", "OWASP", "Burp Suite", "Metasploit", "Wireshark", "SIEM", "IDS/IPS", "SOC", "Incident Response", "Threat Analysis", "Firewalls", "Linux", "Python"],
@@ -143,17 +148,23 @@ const Index = () => {
       skills.forEach(s => candidateCapabilitiesLower.add(s.toLowerCase()));
       experience.forEach(exp => exp.split(/\s*,\s*|\s+/).forEach(word => candidateCapabilitiesLower.add(word.toLowerCase())));
 
+      let matchedJdKeywordsCount = 0;
       for (const requiredKeyword of jdPrimaryRoleKeywords) {
-        if (!candidateCapabilitiesLower.has(requiredKeyword)) {
+        if (candidateCapabilitiesLower.has(requiredKeyword)) {
+          matchedJdKeywordsCount++;
+        } else {
           missingKeywords.push(requiredKeyword);
-          isShortlisted = false;
         }
+      }
+
+      if (matchedJdKeywordsCount < 3) { // Require at least 3 keywords for shortlisting
+        isShortlisted = false;
       }
     }
 
     if (!isShortlisted) {
       matchScore = 1; // Set to minimum score if not shortlisted
-      justification = `This candidate, ${candidateName}, received a score of ${matchScore}/10. Reasoning: Candidate is NOT shortlisted because the job description for '${jdPrimaryRole || "unspecified role"}' requires the following critical keywords that were NOT found in the resume: ${missingKeywords.join(", ")}.`;
+      justification = `This candidate, ${candidateName}, received a score of ${matchScore}/10. Reasoning: Candidate is NOT shortlisted because the job description for '${jdPrimaryRole || "unspecified role"}' requires at least 3 critical keywords, but only ${matchedJdKeywordsCount} were found. Missing: ${missingKeywords.join(", ")}.`;
       // Skip further scoring as the candidate is already not shortlisted
       return {
         id: `cand-${Date.now()}-${Math.random()}`,
