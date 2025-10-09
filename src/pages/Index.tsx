@@ -20,31 +20,29 @@ const Index = () => {
         const baseScore = Math.floor(Math.random() * 5) + 6; // Score between 6 and 10
         const candidateName = file.name.split('.')[0];
         const suggestedRoles = [
-          "Senior Software Engineer",
-          "AI/ML Specialist",
-          "Full-stack Developer",
-          "Data Scientist",
-          "Technical Lead",
+          "Software Engineer",
+          "Developer",
+          "IT Specialist",
+          "Technical Role",
         ];
         const randomSuggestedRole = suggestedRoles[Math.floor(Math.random() * suggestedRoles.length)];
 
-        let justification = `This candidate, ${candidateName}, demonstrates strong proficiency in modern web development, AI integration, and data analysis, aligning well with the job requirements.`;
-        justification += ` The LLM identified high relevance in their experience with scalable applications and AI pipelines (Skill Alignment: ${baseScore}/10, Experience Depth: ${Math.min(baseScore + 1, 10)}/10).`;
-        justification += ` Their educational background in AI further boosts their profile (Education Relevance: ${Math.min(baseScore + 2, 10)}/10).`;
-        justification += ` Contextual analysis of their resume also suggests strong problem-solving and leadership soft skills.`;
+        // Generate more realistic (less hallucinated) data for a simple resume
+        const mockSkills = ["General Software Development", "Problem Solving"];
+        const mockExperience = [`Experience mentioned in ${file.name}`];
+        const mockEducation = ["Relevant Technical Background"];
+
+        let justification = `This candidate, ${candidateName}, has a resume (${file.name}) that indicates general technical experience.`;
+        justification += ` The LLM identified some relevance based on keywords (Skill Alignment: ${baseScore}/10).`;
+        justification += ` Further details would require a more comprehensive resume for deeper analysis.`;
 
         return {
           id: `cand-${index + 1}-${Date.now()}`,
           name: candidateName,
           email: `candidate${index + 1}@example.com`,
-          skills: ["React", "TypeScript", "Tailwind CSS", "LLM Integration", "Data Analysis", "Cloud Computing", "Agile Methodologies"],
-          experience: [
-            "Led development of a real-time data processing platform, improving efficiency by 30%.",
-            "Designed and implemented AI-driven recommendation engines using Python and TensorFlow.",
-            "Managed a team of 5 engineers, overseeing full-stack development projects.",
-            "Contributed to open-source projects, focusing on scalable backend services.",
-          ],
-          education: ["M.S. in Artificial Intelligence, Global Institute of Technology", "B.S. in Computer Science, University of Tech"],
+          skills: mockSkills,
+          experience: mockExperience,
+          education: mockEducation,
           matchScore: baseScore,
           justification: justification,
           resumeFileName: file.name,
