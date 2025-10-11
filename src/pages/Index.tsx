@@ -275,6 +275,105 @@ const ROLE_KEYWORDS: { [key: string]: string[] } = {
     "SQL", "Power BI", "Cost Analysis",
     "Investment Research", "Reporting"
   ],
+  "Mechanical Design Engineer": [
+    "AutoCAD", "SolidWorks", "CATIA", "Creo", "NX", "Fusion 360",
+    "GD&T (Geometric Dimensioning and Tolerancing)",
+    "2D Drafting", "3D Modeling", "FEA", "ANSYS",
+    "Sheet Metal Design", "Machine Design", "CAD Drafting",
+    "DFM (Design for Manufacturing)", "DFA (Design for Assembly)",
+    "Prototyping", "Tolerance Stack-up", "BOM", "Product Lifecycle",
+    "PLM Tools (Teamcenter, Windchill)", "ISO Standards",
+    "Material Selection", "Stress Analysis",
+    "Thermal Simulation", "Kinematics", "Mechanism Design"
+  ],
+  "Manufacturing / Production Engineer": [
+    "CNC Machining", "Lean Manufacturing", "Six Sigma", "Kaizen",
+    "TPM", "5S", "SPC (Statistical Process Control)",
+    "Process Optimization", "Assembly Line Design",
+    "PLC Basics", "Tooling", "Jigs & Fixtures",
+    "Quality Control", "TQM", "FMEA", "Root Cause Analysis",
+    "AutoCAD", "SolidWorks", "Process Planning",
+    "Manufacturing SOPs", "CAM", "CNC Programming",
+    "Material Handling", "Supply Chain Coordination",
+    "GD&T", "Industrial Safety", "Maintenance Planning"
+  ],
+  "HVAC / Thermal Engineer": [
+    "HVAC Design", "Heat Transfer", "Thermodynamics",
+    "AutoCAD", "Revit MEP", "HAP", "TRACE 700",
+    "Duct Design", "Load Calculation", "Chiller Systems",
+    "Ventilation", "Fire Safety Codes", "ASHRAE Standards",
+    "Piping Design", "Fluid Mechanics", "Pump Sizing",
+    "CFD Analysis", "Energy Modeling",
+    "Cooling Systems", "Thermal Simulation",
+    "Building Services", "Airflow Analysis"
+  ],
+  "Automotive / Vehicle Engineer": [
+    "Automotive Design", "Powertrain Systems", "Suspension",
+    "NVH Analysis", "Internal Combustion Engines",
+    "Electric Vehicles (EV)", "Drivetrain", "FEA",
+    "SolidWorks", "CATIA", "MATLAB", "Simulink",
+    "Vehicle Dynamics", "Chassis Design",
+    "Thermal Systems", "CAD Modeling",
+    "Emission Standards", "ISO/TS 16949",
+    "Prototyping", "CAM", "GD&T"
+  ],
+  "Quality / Maintenance Engineer": [
+    "Quality Assurance", "Quality Control", "ISO 9001",
+    "FMEA", "PPAP", "CAPA", "7QC Tools",
+    "Root Cause Analysis", "Statistical Quality Control",
+    "Lean Six Sigma", "TPM", "Maintenance Scheduling",
+    "Preventive Maintenance", "Reliability Engineering",
+    "Equipment Calibration", "SOPs", "Safety Standards",
+    "Kaizen", "Production Auditing", "SAP PM", "ERP Systems"
+  ],
+  "Process Engineer": [
+    "Process Design", "PFD", "P&ID", "Aspen HYSYS", "Aspen Plus",
+    "Chemical Process Simulation", "Heat Exchangers", "Distillation",
+    "Unit Operations", "Mass Transfer", "Fluid Mechanics",
+    "Safety Standards", "PSM", "HAZOP", "HAZID",
+    "Process Optimization", "Scale-up", "Batch Processing",
+    "Process Control", "DCS/SCADA", "Control Valves",
+    "Material and Energy Balance", "Reaction Engineering",
+    "Pilot Plant Operations", "Equipment Design"
+  ],
+  "Plant / Production Engineer": [
+    "Plant Operations", "Batch Processing", "Continuous Processing",
+    "Reactors", "Boilers", "Heat Exchangers",
+    "Pump Selection", "Pipeline Design", "SCADA", "DCS",
+    "Shift Supervision", "Maintenance Coordination",
+    "SOPs", "Shutdown Planning", "Troubleshooting",
+    "Process Safety", "Permit to Work", "ISO Standards",
+    "Lean Manufacturing", "Waste Reduction",
+    "Instrumentation Basics", "Utilities Management"
+  ],
+  "Quality / Safety / EHS Engineer": [
+    "ISO 9001", "ISO 14001", "ISO 45001",
+    "GMP", "GLP", "HACCP Standards",
+    "Quality Assurance", "Quality Control",
+    "HAZOP", "Risk Assessment", "PHA", "PSM",
+    "Incident Investigation", "Safety Audits",
+    "MSDS", "Chemical Handling", "PPE Compliance",
+    "Environmental Compliance", "Waste Treatment",
+    "Statistical Quality Control", "Root Cause Analysis"
+  ],
+  "R&D / Formulation Engineer": [
+    "Polymer Science", "Catalysis", "Process Development",
+    "Lab-scale to Pilot-scale Scale-up",
+    "Coatings", "Pharmaceuticals", "Petrochemicals",
+    "Characterization (GC, HPLC, FTIR, DSC, TGA)",
+    "Material Testing", "Reaction Kinetics",
+    "New Product Development", "Technical Documentation",
+    "Formulation Chemistry", "Lab Safety", "DOE"
+  ],
+  "Petrochemical / Refinery Engineer": [
+    "Petrochemical Processing", "Refinery Operations",
+    "Crude Distillation", "FCC", "Hydrocracking",
+    "Heat Exchangers", "Compressors", "Pumps",
+    "Plant Utilities", "SCADA", "PLC",
+    "Process Simulation (Aspen, HYSYS)",
+    "Piping", "Corrosion Control", "Process Safety",
+    "Turnaround Maintenance", "Shutdown Operations"
+  ],
 };
 
 
