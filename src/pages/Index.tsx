@@ -104,10 +104,10 @@ const Index = () => {
     let extractedEducationDetails: Set<string> = new Set(); // Use a Set to store unique entries
 
     // 1. Extract Vellore Institute of Technology details
-    const vitMatch = resumeContent.match(/Vellore Institute of Technology.*?B\.?Tech.*?Electronics and Communication Engineering.*?CGPA[-:]?\s*(\d+\.?\d*)/i);
+    const vitMatch = resumeContent.match(/Vellore Institute of Technology.*?(B\.?Tech.*?CGPA[-:]?\s*(\d+\.?\d*))/i);
     if (vitMatch) {
-        extractedEducationDetails.add(`Vellore Institute of Technology, B.Tech. Electronics and Communication Engineering | CGPA: ${vitMatch[1]}`);
-        resumeUGCGPA = parseFloat(vitMatch[1]);
+        extractedEducationDetails.add(`Vellore Institute of Technology, ${vitMatch[1].trim()}`);
+        resumeUGCGPA = parseFloat(vitMatch[2]);
     }
 
     // 2. Extract SBOA School & Junior College Grade 12 details
