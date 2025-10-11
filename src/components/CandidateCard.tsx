@@ -4,6 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { Candidate } from "@/types";
 import { motion } from "framer-motion";
 import { cn } from '@/lib/utils';
+import { Copy } from 'lucide-react'; // Import Copy icon
+import { showSuccess, showError } from '@/utils/toast'; // Import showSuccess and showError
+import { NeonButton } from './NeonButton'; // Import NeonButton
 
 // Define MotionDiv as a direct alias for motion.div to help SWC parser
 const MotionDiv = motion.div;
@@ -34,6 +37,31 @@ const CandidateCard: React.FC<CandidateCardProps> = ({ candidate, index }) => {
     }
   };
 
+  const handleCopy = () => {
+    const details = `
+Candidate Name: ${candidate.name}
+Email: ${candidate.email}
+Resume File: ${candidate.resumeFileName}
+Match Score: ${candidate.matchScore}/10
+Suggested Role: ${candidate.suggestedRole || 'N/A'}
+
+Skills:
+${candidate.skills.map(s => `- ${s}`).join('\n')}
+
+Experience:
+${candidate.experience.map(e => `- ${e}`).join('\n')}
+
+Education:
+${candidate.education.map(e => `- ${e}`).join('\n')}
+
+Justification:
+${candidate.justification}
+    `.trim();
+    navigator.clipboard.writeText(details)
+      .then(() => showSuccess("Candidate details copied to clipboard!"))
+      .catch(() => showError("Failed to copy details. Please try again."));
+  };
+
   return (
     <MotionDiv // Using the alias here
       variants={cardVariants}
@@ -43,18 +71,25 @@ const CandidateCard: React.FC<CandidateCardProps> = ({ candidate, index }) => {
     >
       <NeonCard className="w-full h-full flex flex-col">
         <NeonCardHeader>
-          <NeonCardTitle className="flex justify-between items-center flex-wrap gap-2">
-            <span className="flex-grow min-w-0">{candidate.name}</span>
-            <Badge 
-              variant="outline" 
-              className={cn(
-                "text-lg px-3 py-1 border-primary text-primary bg-primary/10",
-                "shadow-neon-glow-sm flex-shrink-0"
-              )}
-            >
-              Score: {candidate.matchScore}/10
-            </Badge>
-          </NeonCardTitle>
+          <div className="flex justify-between items-start flex-wrap gap-2 mb-2"> {/* Wrapper for title, score, and copy button */}
+            <NeonCardTitle className="flex-grow min-w-0">
+              {candidate.name}
+            </NeonCardTitle>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Badge 
+                variant="outline" 
+                className={cn(
+                  "text-lg px-3 py-1 border-primary text-primary bg-primary/10",
+                  "shadow-neon-glow-sm"
+                )}
+              >
+                Score: {candidate.matchScore}/10
+              </Badge>
+              <NeonButton variant="ghost" size="icon" onClick={handleCopy} aria-label="Copy candidate details">
+                <Copy className="h-4 w-4" />
+              </NeonButton>
+            </div>
+          </div>
           <NeonCardDescription className="text-sm text-muted-foreground break-words">
             {candidate.email} | Resume: {candidate.resumeFileName}
           </NeonCardDescription>

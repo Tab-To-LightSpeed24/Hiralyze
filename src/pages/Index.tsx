@@ -1028,7 +1028,7 @@ CERTIFICATIONS
       animate="visible"
       className="flex flex-col items-center p-4 md:p-8 bg-background text-foreground min-h-[calc(100vh-64px)]"
     >
-      <div className="w-full max-w-4xl space-y-8">
+      <div className="w-full max-w-6xl space-y-8"> {/* Changed max-w-4xl to max-w-6xl */}
         <motion.div variants={itemVariants}>
           <ResumeUploadForm onProcessResumes={handleProcessResumes} />
         </motion.div>
