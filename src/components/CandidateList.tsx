@@ -32,7 +32,7 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates }) => {
           },
         },
       }}
-      className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
+      className="grid gap-6 md:grid-cols-2 lg:grid-cols-2" // Changed lg:grid-cols-3 to lg:grid-cols-2
     >
       {candidates.map((candidate, index) => (
         <CandidateCard key={candidate.id} candidate={candidate} index={index} />
