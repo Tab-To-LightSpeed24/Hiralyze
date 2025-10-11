@@ -466,29 +466,29 @@ const Index = () => {
     let extractedEducationDetails: Set<string> = new Set();
 
     // Extract Vellore Institute of Technology B.Tech and CGPA
-    const vitFullMatch = resumeContent.match(/(Vellore Institute of Technology.*?B\.?Tech.*?Electronics and Communication Engineering.*?CGPA[-:]?\s*(\d+\.?\d*))/i);
+    const vitFullMatch = resumeContent.match(/(Vellore Institute of Technology.*?B\.?Tech.*?Computer Science and Engineering.*?CGPA[-:]?\s*(\d+\.?\d*))/i);
     if (vitFullMatch) {
         extractedEducationDetails.add(vitFullMatch[1].trim());
         resumeUGCGPA = parseFloat(vitFullMatch[2]);
     }
 
     // Extract SBOA School & Junior College Grade 12 or Senior School Certificate
-    const sboa12FullMatch = resumeContent.match(/(SBOA School & Junior College.*?Grade 12:?\s*(\d+\.?\d*)%|SBOA School & Junior College.*?All Indian Senior School Certificate Examination.*?Percentage :?\s*(\d+\.?\d*)%)/i);
+    const sboa12FullMatch = resumeContent.match(/(Chennai Public School.*?Grade 12:?\s*(\d+\.?\d*)%)/i);
     if (sboa12FullMatch) {
-        const percentage = sboa12FullMatch[2] || sboa12FullMatch[3];
+        const percentage = sboa12FullMatch[2];
         if (percentage) {
             resume12thPercentage = parseFloat(percentage);
-            extractedEducationDetails.add(`SBOA School & Junior College, Grade 12: ${resume12thPercentage}%`);
+            extractedEducationDetails.add(`Chennai Public School, Grade 12: ${resume12thPercentage}%`);
         }
     }
 
     // Extract SBOA School & Junior College Grade 10 or Secondary School Examination
-    const sboa10FullMatch = resumeContent.match(/(SBOA School & Junior College.*?Grade 10:?\s*(\d+\.?\d*)%|SBOA School & Junior College.*?All Indian Secondary School Examination.*?Percentage :?\s*(\d+\.?\d*)%)/i);
+    const sboa10FullMatch = resumeContent.match(/(Chennai Public School.*?Grade 10:?\s*(\d+\.?\d*)%)/i);
     if (sboa10FullMatch) {
-        const percentage = sboa10FullMatch[2] || sboa10FullMatch[3];
+        const percentage = sboa10FullMatch[2];
         if (percentage) {
             resume10thPercentage = parseFloat(percentage);
-            extractedEducationDetails.add(`SBOA School & Junior College, Grade 10: ${resume10thPercentage}%`);
+            extractedEducationDetails.add(`Chennai Public School, Grade 10: ${resume10thPercentage}%`);
         }
     }
 
@@ -562,17 +562,16 @@ const Index = () => {
 
     const parseExperienceEntries = (text: string): string[] => {
       const entries: string[] = [];
+      const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
       let currentEntry: string[] = [];
 
-      const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
-
       for (const line of lines) {
-        // If it's a bullet point or a line that doesn't look like a new heading, append to current entry
-        // A new heading is typically capitalized and not a bullet.
-        if (line.startsWith('•') || !/^[A-Z]/.test(line)) {
+        // If it's a bullet point or a continuation of a previous line (e.g., starts with lowercase or not a clear heading)
+        // Also, if it's a line that doesn't start with a capital letter (and isn't a bullet), it's likely a continuation.
+        if (line.startsWith('•') || (currentEntry.length > 0 && !/^[A-Z0-9]/.test(line))) {
           currentEntry.push(line);
         } else {
-          // New heading, push previous entry and start new one
+          // This is a new entry/heading
           if (currentEntry.length > 0) {
             entries.push(currentEntry.join('\n'));
           }
