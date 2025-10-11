@@ -40,19 +40,19 @@ const CandidateCard: React.FC<CandidateCardProps> = ({ candidate, index }) => {
     >
       <NeonCard className="w-full h-full flex flex-col"> {/* Use NeonCard */}
         <NeonCardHeader> {/* Use NeonCardHeader */}
-          <NeonCardTitle className="flex justify-between items-center"> {/* Use NeonCardTitle */}
-            <span>{candidate.name}</span>
+          <NeonCardTitle className="flex justify-between items-center flex-wrap gap-2"> {/* Added flex-wrap and gap-2 */}
+            <span className="flex-grow min-w-0">{candidate.name}</span> {/* Added flex-grow and min-w-0 */}
             <Badge 
               variant="outline" 
               className={cn(
                 "text-lg px-3 py-1 border-primary text-primary bg-primary/10",
-                "shadow-neon-glow-sm" // Subtle glow for badge
+                "shadow-neon-glow-sm flex-shrink-0" // Added flex-shrink-0
               )}
             >
               Score: {candidate.matchScore}/10
             </Badge>
           </NeonCardTitle>
-          <NeonCardDescription className="text-sm text-muted-foreground"> {/* Use NeonCardDescription */}
+          <NeonCardDescription className="text-sm text-muted-foreground break-words"> {/* Added break-words */}
             {candidate.email} | Resume: {candidate.resumeFileName}
           </NeonCardDescription>
         </NeonCardHeader>
@@ -60,20 +60,20 @@ const CandidateCard: React.FC<CandidateCardProps> = ({ candidate, index }) => {
           {candidate.suggestedRole && (
             <div>
               <h4 className="font-semibold mb-1 text-primary text-neon-glow">Suggested Role:</h4>
-              <Badge variant="default" className="text-base px-3 py-1 bg-primary text-primary-foreground shadow-neon-glow-sm">{candidate.suggestedRole}</Badge>
+              <Badge variant="default" className="text-base px-3 py-1 bg-primary text-primary-foreground shadow-neon-glow-sm break-words">{candidate.suggestedRole}</Badge> {/* Added break-words */}
             </div>
           )}
           <div>
             <h4 className="font-semibold mb-1 text-primary text-neon-glow">Skills:</h4>
             <div className="flex flex-wrap gap-2">
               {candidate.skills.map((skill, skillIndex) => (
-                <Badge key={skillIndex} variant="outline" className="border-primary/50 text-muted-foreground bg-secondary/20">{skill}</Badge>
+                <Badge key={skillIndex} variant="outline" className="border-primary/50 text-muted-foreground bg-secondary/20 break-words">{skill}</Badge> {/* Added break-words */}
               ))}
             </div>
           </div>
           <div>
             <h4 className="font-semibold mb-1 text-primary text-neon-glow">Experience:</h4>
-            <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+            <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 break-words"> {/* Added break-words */}
               {candidate.experience.map((exp, expIndex) => (
                 <li key={expIndex}>{exp}</li>
               ))}
@@ -81,7 +81,7 @@ const CandidateCard: React.FC<CandidateCardProps> = ({ candidate, index }) => {
           </div>
           <div>
             <h4 className="font-semibold mb-1 text-primary text-neon-glow">Education:</h4>
-            <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+            <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 break-words"> {/* Added break-words */}
               {candidate.education.map((edu, eduIndex) => (
                 <li key={eduIndex}>{edu}</li>
               ))}
@@ -89,7 +89,7 @@ const CandidateCard: React.FC<CandidateCardProps> = ({ candidate, index }) => {
           </div>
           <div>
             <h4 className="font-semibold mb-1 text-primary text-neon-glow">Justification:</h4>
-            <p className="text-sm text-muted-foreground">{candidate.justification}</p>
+            <p className="text-sm text-muted-foreground break-words">{candidate.justification}</p> {/* Added break-words */}
           </div>
         </NeonCardContent>
       </NeonCard>
