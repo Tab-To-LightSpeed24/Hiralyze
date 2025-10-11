@@ -157,16 +157,18 @@ const ROLE_KEYWORDS: { [key: string]: string[] } = {
     "Azure Data Factory", "Informatica", "Talend"
   ],
   "Cloud Engineer": [
-    "AWS (EC2, S3, Lambda, Route53, RDS, IAM, VPC)",
+    "AWS (EC2, S3, IAM, Lambda, Route53, RDS, IAM, VPC)",
     "Azure (VM, Blob Storage, Functions, AKS)",
     "GCP (GKE, Cloud Run, Pub/Sub, BigQuery)",
-    "Terraform", "CloudFormation", "Ansible",
-    "Docker", "Kubernetes", "Helm Charts",
-    "Serverless", "API Gateway", "IAM",
-    "Networking", "VPC", "Subnets", "DNS",
-    "CI/CD", "Jenkins", "GitHub Actions",
-    "Monitoring (CloudWatch, Stackdriver)",
-    "Load Balancers", "Auto Scaling Groups"
+    "Terraform", "Ansible", "Packer", "CloudFormation",
+    "Jenkins", "GitHub Actions", "GitLab CI", "CircleCI",
+    "Prometheus", "Grafana", "ELK Stack", "Loki",
+    "Load Balancing", "Nginx", "HAProxy",
+    "Networking", "DNS", "VPC", "Subnets", "Firewalls",
+    "Monitoring", "Logging", "Auto Scaling",
+    "CI/CD Pipelines", "Blue-Green Deployments", "Canary Releases",
+    "SonarQube", "Nexus", "Artifactory", "Vault", "Secrets Management",
+    "Python", "Go", "Groovy Scripting"
   ],
   "Site Reliability Engineer (SRE)": [
     "SLI", "SLO", "SLA", "Error Budgets",
@@ -647,16 +649,56 @@ const Index = () => {
     // --- New Strict Shortlisting Logic ---
     let isShortlisted = true;
     let missingKeywords: string[] = [];
-    // jdPrimaryRoleKeywords is already set above if a role was inferred
     let matchedJdKeywordsCount = 0;
 
-    if (jdPrimaryRole && jdPrimaryRoleKeywords.length > 0) {
-      const candidateCapabilitiesLower = new Set<string>();
-      skills.forEach(s => candidateCapabilitiesLower.add(s.toLowerCase()));
-      experience.forEach(exp => exp.split(/\s*,\s*|\s+/).forEach(word => candidateCapabilitiesLower.add(word.toLowerCase())));
+    // Prepare candidate capabilities for matching
+    const candidateCapabilitiesLower = new Set<string>();
+    const addWords = (text: string) => {
+      text.split(/[\s,.;:()\[\]{}'"`-]+/).map(word => word.trim().toLowerCase()).filter(Boolean).forEach(w => candidateCapabilitiesLower.add(w));
+    };
 
-      for (const requiredKeyword of jdPrimaryRoleKeywords) {
-        if (candidateCapabilitiesLower.has(requiredKeyword)) {
+    skills.forEach(s => {
+      candidateCapabilitiesLower.add(s.toLowerCase()); // Add full skill phrase
+      addWords(s); // Add individual words from skill
+    });
+    experience.forEach(exp => {
+      candidateCapabilitiesLower.add(exp.toLowerCase()); // Add full experience phrase
+      addWords(exp); // Add individual words from experience
+    });
+    education.forEach(edu => {
+      candidateCapabilitiesLower.add(edu.toLowerCase()); // Add full education phrase
+      addWords(edu); // Add individual words from education
+    });
+    addWords(resumeContentLower); // Add individual words from raw resume content
+
+    let jdKeywordsToMatch: string[] = [];
+
+    if (jdPrimaryRole && jdPrimaryRoleKeywords.length > 0) {
+      // Flatten complex role keywords like "AWS (EC2, S3)" into "aws", "ec2", "s3"
+      jdPrimaryRoleKeywords.forEach(keywordPhrase => {
+        const mainKeywordMatch = keywordPhrase.match(/^([\w\s.-]+?)(?:\s*\((.*?)\))?$/i);
+        if (mainKeywordMatch) {
+          const mainKeyword = mainKeywordMatch[1].trim();
+          if (mainKeyword) jdKeywordsToMatch.push(mainKeyword.toLowerCase());
+          if (mainKeywordMatch[2]) {
+            mainKeywordMatch[2].split(',').map(s => s.trim()).filter(Boolean).forEach(subKeyword => {
+              jdKeywordsToMatch.push(subKeyword.toLowerCase());
+            });
+          }
+        } else {
+          jdKeywordsToMatch.push(keywordPhrase.toLowerCase());
+        }
+      });
+    } else {
+      // If no primary role, use explicit skills/experience from JD
+      jdKeywordsToMatch = [...jdCriteria.requiredSkillsKeywords, ...jdCriteria.requiredExperienceKeywords];
+    }
+
+    // Perform matching with flattened keywords
+    if (jdKeywordsToMatch.length > 0) {
+      for (const requiredKeyword of jdKeywordsToMatch) {
+        // Check if any of the candidate's capabilities *contain* the required keyword
+        if (Array.from(candidateCapabilitiesLower).some(cap => cap.includes(requiredKeyword))) {
           matchedJdKeywordsCount++;
         } else {
           missingKeywords.push(requiredKeyword);
@@ -739,7 +781,7 @@ const Index = () => {
 
     // Score for matching JD experience keywords (from projects for interns)
     let matchedExperienceKeywordsCount = 0;
-    const jdExperienceKeywordsToUse = jdPrimaryRole ? jdPrimaryRoleKeywords : jdCriteria.requiredExperienceKeywords;
+    const jdExperienceKeywordsToUse = jdPrimaryRole ? jdKeywordsToMatch : jdCriteria.requiredExperienceKeywords; // Use flattened keywords if primary role exists
 
     if (jdExperienceKeywordsToUse.length > 0 && (experience.length > 0)) {
       jdExperienceKeywordsToUse.forEach(jdExp => {
@@ -762,7 +804,7 @@ const Index = () => {
 
     // 3. Skills Matching & Scoring
     let matchedSkillsCount = 0;
-    const jdSkillsKeywordsToUse = jdPrimaryRole ? jdPrimaryRoleKeywords : jdCriteria.requiredSkillsKeywords;
+    const jdSkillsKeywordsToUse = jdPrimaryRole ? jdKeywordsToMatch : jdCriteria.requiredSkillsKeywords; // Use flattened keywords if primary role exists
 
     if (jdSkillsKeywordsToUse.length > 0 && skills.length > 0 && skills[0] !== "No specific skills identified") {
       jdSkillsKeywordsToUse.forEach(jdSkill => {
