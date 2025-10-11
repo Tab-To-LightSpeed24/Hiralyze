@@ -46,7 +46,7 @@
 
   /* Force dark theme for consistency */
   body {
-    @apply bg-background text-foreground dark;
+    @apply bg-background text-foreground; /* Removed 'dark' from here */
   }
 }
 
