@@ -94,9 +94,30 @@ const Index = () => {
       zeroExperienceCandidatesOnly: jobDescriptionLower.includes("zero experience candidates only"),
       communicationSkillsRequired: jobDescriptionLower.includes("excellent written and verbal communication skills"),
       teamworkSkillsRequired: jobDescriptionLower.includes("ability to collaborate and work well in team environments"),
+      // Initialize with explicit keywords from JD, but these will be overridden if a primary role is found
       requiredSkillsKeywords: (jobDescription.match(/(?:skills|requirements|proficient in):?\s*([\w\s,.-]+)/i)?.[1]?.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)) || [],
       requiredExperienceKeywords: (jobDescription.match(/(?:experience|responsibilities):?\s*([\w\s,.-]+)/i)?.[1]?.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)) || [],
     };
+
+    let jdPrimaryRole: string | undefined;
+    let jdPrimaryRoleKeywords: string[] = [];
+
+    // Try to infer the primary role from the job description
+    for (const role in ROLE_KEYWORDS) {
+      if (jobDescriptionLower.includes(role.toLowerCase())) {
+        jdPrimaryRole = role;
+        jdPrimaryRoleKeywords = ROLE_KEYWORDS[role].map(k => k.toLowerCase());
+        break;
+      }
+    }
+
+    // IMPORTANT: If a primary role is inferred, use its keywords for matching and scoring
+    // This overrides any explicit keywords found in the JD text if a role is clearly identified.
+    if (jdPrimaryRole) {
+      jdCriteria.requiredSkillsKeywords = jdPrimaryRoleKeywords;
+      jdCriteria.requiredExperienceKeywords = jdPrimaryRoleKeywords; // Assuming role keywords cover both skills and experience for simplicity
+    }
+
 
     // --- Education Parsing ---
     let resume10thPercentage = 0;
@@ -225,18 +246,8 @@ const Index = () => {
     // --- New Strict Shortlisting Logic ---
     let isShortlisted = true;
     let missingKeywords: string[] = [];
-    let jdPrimaryRoleKeywords: string[] = [];
-    let jdPrimaryRole: string | undefined;
+    // jdPrimaryRoleKeywords is already set above if a role was inferred
     let matchedJdKeywordsCount = 0;
-
-    // Try to infer the primary role from the job description
-    for (const role in ROLE_KEYWORDS) {
-      if (jobDescriptionLower.includes(role.toLowerCase())) {
-        jdPrimaryRole = role;
-        jdPrimaryRoleKeywords = ROLE_KEYWORDS[role].map(k => k.toLowerCase());
-        break;
-      }
-    }
 
     if (jdPrimaryRole && jdPrimaryRoleKeywords.length > 0) {
       const candidateCapabilitiesLower = new Set<string>();
@@ -251,14 +262,21 @@ const Index = () => {
         }
       }
 
-      if (matchedJdKeywordsCount < 3) {
+      if (matchedJdKeywordsCount < 3) { // Minimum 3 keywords for shortlisting
         isShortlisted = false;
       }
+    } else {
+      // If no primary role inferred, and no explicit keywords in JD, cannot shortlist based on keywords
+      isShortlisted = false;
+      justification = "Cannot shortlist: No primary role inferred from job description and no explicit skills/experience keywords provided in JD.";
     }
+
 
     if (!isShortlisted) {
       matchScore = 1;
-      justification = `This candidate, ${candidateName}, received a score of ${matchScore}/10. Reasoning: Candidate is NOT shortlisted because the job description for '${jdPrimaryRole || "unspecified role"}' requires at least 3 critical keywords, but only ${matchedJdKeywordsCount} were found. Missing: ${missingKeywords.join(", ")}.`;
+      if (!justification) { // Only set if not already set by the "no primary role" case
+        justification = `This candidate, ${candidateName}, received a score of ${matchScore}/10. Reasoning: Candidate is NOT shortlisted because the job description for '${jdPrimaryRole || "unspecified role"}' requires at least 3 critical keywords, but only ${matchedJdKeywordsCount} were found. Missing: ${missingKeywords.join(", ")}.`;
+      }
       return {
         id: `cand-${Date.now()}-${Math.random()}`,
         name: candidateName,
@@ -320,8 +338,10 @@ const Index = () => {
 
     // Score for matching JD experience keywords (from projects for interns)
     let matchedExperienceKeywordsCount = 0;
-    if (jdCriteria.requiredExperienceKeywords.length > 0 && (experience.length > 0)) {
-      jdCriteria.requiredExperienceKeywords.forEach(jdExp => {
+    const jdExperienceKeywordsToUse = jdPrimaryRole ? jdPrimaryRoleKeywords : jdCriteria.requiredExperienceKeywords;
+
+    if (jdExperienceKeywordsToUse.length > 0 && (experience.length > 0)) {
+      jdExperienceKeywordsToUse.forEach(jdExp => {
         if (experience.some(resExp => resExp.toLowerCase().includes(jdExp))) {
           matchedExperienceKeywordsCount++;
         }
@@ -330,19 +350,21 @@ const Index = () => {
         baseScore += Math.min(2, matchedExperienceKeywordsCount);
         scoreReasoning.push(`${matchedExperienceKeywordsCount} relevant experience/project keywords matched with JD requirements.`);
       } else {
-        scoreReasoning.push("No specific experience/project keywords from JD matched in resume.");
+        scoreReasoning.push(`No specific experience/project keywords from JD (${jdPrimaryRole ? 'inferred' : 'explicit'}) matched in resume.`);
       }
     } else if (experience.length > 0 && experience[0] !== "No specific experience identified") {
         baseScore += 1;
-        scoreReasoning.push("Resume contains project details, though JD did not specify keywords.");
+        scoreReasoning.push("Resume contains project details, but no specific experience keywords were provided in the JD or inferred from role.");
     } else {
         scoreReasoning.push("No specific experience or project details found in resume.");
     }
 
     // 3. Skills Matching & Scoring
     let matchedSkillsCount = 0;
-    if (jdCriteria.requiredSkillsKeywords.length > 0 && skills.length > 0 && skills[0] !== "No specific skills identified") {
-      jdCriteria.requiredSkillsKeywords.forEach(jdSkill => {
+    const jdSkillsKeywordsToUse = jdPrimaryRole ? jdPrimaryRoleKeywords : jdCriteria.requiredSkillsKeywords;
+
+    if (jdSkillsKeywordsToUse.length > 0 && skills.length > 0 && skills[0] !== "No specific skills identified") {
+      jdSkillsKeywordsToUse.forEach(jdSkill => {
         if (skills.some(resSkill => resSkill.toLowerCase().includes(jdSkill))) {
           matchedSkillsCount++;
         }
@@ -351,11 +373,11 @@ const Index = () => {
         baseScore += Math.min(3, matchedSkillsCount);
         scoreReasoning.push(`${matchedSkillsCount} relevant skills matched with JD requirements.`);
       } else {
-        scoreReasoning.push("No specific skills from JD matched in resume.");
+        scoreReasoning.push(`No specific skills from JD (${jdPrimaryRole ? 'inferred' : 'explicit'}) matched in resume.`);
       }
     } else if (skills.length > 0 && skills[0] !== "No specific skills identified") {
         baseScore += 1;
-        scoreReasoning.push("Resume contains specific skills, though JD did not specify keywords.");
+        scoreReasoning.push("Resume contains specific skills, but no specific skills keywords were provided in the JD or inferred from role.");
     } else {
         scoreReasoning.push("No specific skills found in resume.");
     }
