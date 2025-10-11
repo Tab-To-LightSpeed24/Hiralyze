@@ -4,7 +4,8 @@ import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/components/SessionContextProvider';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { NeonCard, NeonCardContent, NeonCardHeader, NeonCardTitle } from '@/components/NeonCard'; // Use NeonCard
+import { cn } from '@/lib/utils';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -18,11 +19,11 @@ const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center">Sign In / Sign Up</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <NeonCard className="w-full max-w-md"> {/* Use NeonCard */}
+        <NeonCardHeader> {/* Use NeonCardHeader */}
+          <NeonCardTitle className="text-center">Sign In / Sign Up</NeonCardTitle> {/* Use NeonCardTitle */}
+        </NeonCardHeader>
+        <NeonCardContent> {/* Use NeonCardContent */}
           <Auth
             supabaseClient={supabase}
             providers={[]} // No third-party providers by default
@@ -31,17 +32,29 @@ const Login: React.FC = () => {
               variables: {
                 default: {
                   colors: {
-                    brand: 'hsl(var(--primary))',
-                    brandAccent: 'hsl(var(--primary-foreground))',
+                    brand: 'hsl(var(--primary))', // Neon green for brand color
+                    brandAccent: 'hsl(var(--primary-foreground))', // Dark text on neon
+                    defaultButtonBackground: 'hsl(var(--secondary)/30%)', // Darker button background
+                    defaultButtonBackgroundHover: 'hsl(var(--primary)/10%)', // Subtle neon hover
+                    defaultButtonBorder: 'hsl(var(--primary)/50%)', // Neon border
+                    inputBackground: 'hsl(var(--secondary)/30%)',
+                    inputBorder: 'hsl(var(--primary)/50%)',
+                    inputFocusBorder: 'hsl(var(--primary))',
+                    inputText: 'hsl(var(--foreground))',
+                    inputPlaceholder: 'hsl(var(--muted-foreground))',
+                    messageText: 'hsl(var(--foreground))',
+                    messageBackground: 'hsl(var(--secondary)/20%)',
+                    anchorTextColor: 'hsl(var(--primary))',
+                    anchorTextHoverColor: 'hsl(var(--primary)/80%)',
                   },
                 },
               },
             }}
-            theme="light"
+            theme="dark" // Explicitly set dark theme for Auth UI
             redirectTo={window.location.origin} // Redirect to home after auth
           />
-        </CardContent>
-      </Card>
+        </NeonCardContent>
+      </NeonCard>
     </div>
   );
 };

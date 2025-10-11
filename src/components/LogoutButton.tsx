@@ -1,9 +1,9 @@
 import React from 'react';
-import { Button } from '@/components/ui/button';
 import { LogOut } from 'lucide-react';
 import { useSession } from './SessionContextProvider';
 import { useNavigate } from 'react-router-dom';
 import { showError, showSuccess } from '@/utils/toast';
+import { NeonButton } from './NeonButton'; // Import NeonButton
 
 const LogoutButton: React.FC = () => {
   const { supabase } = useSession();
@@ -20,9 +20,9 @@ const LogoutButton: React.FC = () => {
   };
 
   return (
-    <Button variant="ghost" size="icon" onClick={handleLogout} aria-label="Logout">
+    <NeonButton variant="ghost" size="icon" onClick={handleLogout} aria-label="Logout">
       <LogOut className="h-5 w-5" />
-    </Button>
+    </NeonButton>
   );
 };
 
