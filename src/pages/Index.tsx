@@ -4,6 +4,7 @@ import CandidateList from "@/components/CandidateList";
 import { Candidate } from "@/types";
 import { Separator } from "@/components/ui/separator";
 import { motion } from "framer-motion";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; // Import Tabs components
 
 // Define the comprehensive list of roles and their core keywords
 const ROLE_KEYWORDS: { [key: string]: string[] } = {
@@ -45,7 +46,8 @@ const ROLE_KEYWORDS: { [key: string]: string[] } = {
 
 
 const Index = () => {
-  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [shortlistedCandidates, setShortlistedCandidates] = useState<Candidate[]>([]);
+  const [notShortlistedCandidates, setNotShortlistedCandidates] = useState<Candidate[]>([]);
   const [processing, setProcessing] = useState<boolean>(false);
 
   // Helper function to simulate LLM parsing and scoring
@@ -592,15 +594,13 @@ CERTIFICATIONS
     };
 
     setTimeout(() => {
-      const processedCandidates: Candidate[] = files.map(file => {
+      const allProcessedCandidates: Candidate[] = files.map(file => {
         const resumeContent = mockResumeContentMap[file.name] || `Content of ${file.name} is not mocked.`;
         return mockAnalyzeResume(file.name, resumeContent, jobDescription);
       });
 
-      // Filter out candidates that were explicitly marked as "NOT shortlisted" (matchScore === 1)
-      const shortlistedCandidates = processedCandidates.filter(candidate => candidate.matchScore > 1);
-
-      setCandidates(shortlistedCandidates);
+      setShortlistedCandidates(allProcessedCandidates.filter(candidate => candidate.matchScore > 1));
+      setNotShortlistedCandidates(allProcessedCandidates.filter(candidate => candidate.matchScore === 1));
       setProcessing(false);
     }, 1500); // Simulate network delay
   };
@@ -642,7 +642,7 @@ CERTIFICATIONS
           </motion.div>
         )}
 
-        {candidates.length > 0 && !processing && (
+        {(shortlistedCandidates.length > 0 || notShortlistedCandidates.length > 0) && !processing && (
           <motion.div variants={itemVariants}>
             <Separator className="my-8" />
             <motion.h2
@@ -651,9 +651,28 @@ CERTIFICATIONS
               transition={{ delay: 0.2 }}
               className="text-3xl font-bold text-center mb-8"
             >
-              Shortlisted Candidates
+              Candidate Results
             </motion.h2>
-            <CandidateList candidates={candidates} />
+            <Tabs defaultValue="shortlisted" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="shortlisted">Shortlisted ({shortlistedCandidates.length})</TabsTrigger>
+                <TabsTrigger value="not-shortlisted">Not Shortlisted ({notShortlistedCandidates.length})</TabsTrigger>
+              </TabsList>
+              <TabsContent value="shortlisted" className="mt-6">
+                {shortlistedCandidates.length > 0 ? (
+                  <CandidateList candidates={shortlistedCandidates} />
+                ) : (
+                  <p className="text-center text-muted-foreground p-8">No candidates were shortlisted.</p>
+                )}
+              </TabsContent>
+              <TabsContent value="not-shortlisted" className="mt-6">
+                {notShortlistedCandidates.length > 0 ? (
+                  <CandidateList candidates={notShortlistedCandidates} />
+                ) : (
+                  <p className="text-center text-muted-foreground p-8">All processed candidates were shortlisted.</p>
+                )}
+              </TabsContent>
+            </Tabs>
           </motion.div>
         )}
       </div>
