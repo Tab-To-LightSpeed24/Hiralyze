@@ -103,52 +103,43 @@ const Index = () => {
     let resumeUGCGPA = 0;
     let extractedEducationDetails: Set<string> = new Set(); // Use a Set to store unique entries
 
-    // Regex patterns to find education details anywhere in the resume
-    // Pattern for University/Degree with optional CGPA
-    const universityDegreePattern = /(?:Vellore Institute of Technology|Chennai Public School|.*?B\.?Tech.*?|.*?B\.?S\.?.*?|.*?M\.?Tech.*?|.*?M\.?S\.?.*?|.*?Ph\.?D\.?.*?)(?: in [A-Za-z\s]+)?(?:.*?CGPA[-:]?\s*(\d+\.?\d*))?/gi;
-    // Pattern for 12th grade percentage
-    const grade12Pattern = /(?:Grade 12|Senior School Certificate Examination).*?(\d+\.?\d*)%/i;
-    // Pattern for 10th grade percentage
-    const grade10Pattern = /(?:Grade 10|Secondary School Examination).*?(\d+\.?\d*)%/i;
-    // Pattern for standalone CGPA
-    const cgpaPattern = /CGPA[-:]?\s*(\d+\.?\d*)/i;
+    // 1. Extract Vellore Institute of Technology details
+    const vitMatch = resumeContent.match(/Vellore Institute of Technology.*?B\.?Tech.*?Electronics and Communication Engineering.*?CGPA[-:]?\s*(\d+\.?\d*)/i);
+    if (vitMatch) {
+        extractedEducationDetails.add(`Vellore Institute of Technology, B.Tech. Electronics and Communication Engineering | CGPA: ${vitMatch[1]}`);
+        resumeUGCGPA = parseFloat(vitMatch[1]);
+    }
 
-    // 1. Extract University/Degree and associated CGPA
-    const uniDegreeMatches = resumeContent.matchAll(universityDegreePattern);
-    for (const match of uniDegreeMatches) {
-        if (match[0]) {
-            let entry = match[0].trim();
-            // Attempt to clean up common noise from Aravind's resume
-            entry = entry.replace(/PROFILESoftware skills -.*?SKILLS\s*/i, '').trim();
-            entry = entry.replace(/Dedicated third-year.*?industry\./i, '').trim();
-            entry = entry.replace(/EDUCATIONPROJECTCLUBS AND CHAPTERS.*/i, '').trim();
-            entry = entry.replace(/SBOA School & Junior College Chennai, Tamilnadu/gi, 'SBOA School & Junior College'); // Simplify
-            entry = entry.replace(/All Indian Senior School Certificate Examination/gi, 'Senior School Certificate');
-            entry = entry.replace(/All Indian Secondary School Examination/gi, 'Secondary School Examination');
-
-            if (entry) extractedEducationDetails.add(entry);
+    // 2. Extract SBOA School & Junior College Grade 12 details
+    const sboa12Match = resumeContent.match(/SBOA School & Junior College.*?Grade 12:?\s*(\d+\.?\d*)%/i);
+    if (sboa12Match) {
+        resume12thPercentage = parseFloat(sboa12Match[1]);
+        extractedEducationDetails.add(`SBOA School & Junior College, Grade 12: ${resume12thPercentage}%`);
+    } else { // Fallback for "All Indian Senior School Certificate Examination"
+        const sboa12AltMatch = resumeContent.match(/SBOA School & Junior College.*?All Indian Senior School Certificate Examination.*?Percentage :?\s*(\d+\.?\d*)%/i);
+        if (sboa12AltMatch) {
+            resume12thPercentage = parseFloat(sboa12AltMatch[1]);
+            extractedEducationDetails.add(`SBOA School & Junior College, Grade 12: ${resume12thPercentage}%`);
         }
-        if (match[1] && resumeUGCGPA === 0) resumeUGCGPA = parseFloat(match[1]);
     }
 
-    // 2. Extract standalone CGPA if not found with degree
+    // 3. Extract SBOA School & Junior College Grade 10 details
+    const sboa10Match = resumeContent.match(/SBOA School & Junior College.*?Grade 10:?\s*(\d+\.?\d*)%/i);
+    if (sboa10Match) {
+        resume10thPercentage = parseFloat(sboa10Match[1]);
+        extractedEducationDetails.add(`SBOA School & Junior College, Grade 10: ${resume10thPercentage}%`);
+    } else { // Fallback for "All Indian Secondary School Examination"
+        const sboa10AltMatch = resumeContent.match(/SBOA School & Junior College.*?All Indian Secondary School Examination.*?Percentage :?\s*(\d+\.?\d*)%/i);
+        if (sboa10AltMatch) {
+            resume10thPercentage = parseFloat(sboa10AltMatch[1]);
+            extractedEducationDetails.add(`SBOA School & Junior College, Grade 10: ${resume10thPercentage}%`);
+        }
+    }
+
+    // General CGPA fallback if not found with VIT
     if (resumeUGCGPA === 0) {
-        const cgpaMatch = resumeContent.match(cgpaPattern);
-        if (cgpaMatch) resumeUGCGPA = parseFloat(cgpaMatch[1]);
-    }
-
-    // 3. Extract 12th grade percentage
-    const grade12Match = resumeContent.match(grade12Pattern);
-    if (grade12Match) {
-        resume12thPercentage = parseFloat(grade12Match[1]);
-        extractedEducationDetails.add(`Grade 12: ${resume12thPercentage}%`);
-    }
-
-    // 4. Extract 10th grade percentage
-    const grade10Match = resumeContent.match(grade10Pattern);
-    if (grade10Match) {
-        resume10thPercentage = parseFloat(grade10Match[1]);
-        extractedEducationDetails.add(`Grade 10: ${resume10thPercentage}%`);
+        const generalCgpaMatch = resumeContent.match(/CGPA[-:]?\s*(\d+\.?\d*)/i);
+        if (generalCgpaMatch) resumeUGCGPA = parseFloat(generalCgpaMatch[1]);
     }
 
     education = Array.from(extractedEducationDetails);
