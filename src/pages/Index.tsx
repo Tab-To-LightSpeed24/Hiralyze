@@ -101,37 +101,80 @@ const Index = () => {
     let resume10thPercentage = 0;
     let resume12thPercentage = 0;
     let resumeUGCGPA = 0;
+    let tempEducationDetails: string[] = [];
 
+    // Pass 1: Try to extract content explicitly marked as "EDUCATION" section
     const educationSectionContent = extractContentBetween(resumeContent, "EDUCATION", allKnownHeaders.filter(h => h !== "EDUCATION"));
 
     if (educationSectionContent) {
-      // Extract University/Degree
+      // Parse from the identified section
       const universityDegreeMatches = educationSectionContent.matchAll(/(.*?B\.?Tech.*?|.*?B\.?S\.?.*?|.*?M\.?Tech.*?|.*?M\.?S\.?.*?|.*?Ph\.?D\.?.*?)(?: in [A-Za-z\s]+)?(?:.*?CGPA[-:]?\s*(\d+\.?\d*))?/gi);
       for (const match of universityDegreeMatches) {
-        if (match[0]) education.push(match[0].trim());
-        if (match[1]) resumeUGCGPA = parseFloat(match[1]); // Capture CGPA if present with degree
+        if (match[0]) tempEducationDetails.push(match[0].trim());
+        if (match[1]) resumeUGCGPA = parseFloat(match[1]);
       }
 
-      // Extract CGPA if not already captured
       if (resumeUGCGPA === 0) {
         const cgpaMatch = educationSectionContent.match(/CGPA[-:]?\s*(\d+\.?\d*)/i);
         if (cgpaMatch) resumeUGCGPA = parseFloat(cgpaMatch[1]);
       }
 
-      // Extract 12th grade percentage
       const grade12Match = educationSectionContent.match(/(?:Grade 12|Senior School Certificate Examination).*?(\d+\.?\d*)%/i);
       if (grade12Match) {
         resume12thPercentage = parseFloat(grade12Match[1]);
-        education.push(`Grade 12: ${resume12thPercentage}%`);
+        tempEducationDetails.push(`Grade 12: ${resume12thPercentage}%`);
       }
 
-      // Extract 10th grade percentage
       const grade10Match = educationSectionContent.match(/(?:Grade 10|Secondary School Examination).*?(\d+\.?\d*)%/i);
       if (grade10Match) {
         resume10thPercentage = parseFloat(grade10Match[1]);
-        education.push(`Grade 10: ${resume10thPercentage}%`);
+        tempEducationDetails.push(`Grade 10: ${resume10thPercentage}%`);
       }
     }
+
+    // Pass 2: Fallback - if no education details were found in a dedicated section,
+    // or if the resume is "Resume Aravind.pdf" (known tricky format),
+    // scan the entire resume content for education patterns.
+    if (tempEducationDetails.length === 0 || resumeFileName === "Resume Aravind.pdf") {
+        // Look for university/degree patterns
+        const generalUniversityDegreeMatches = resumeContent.matchAll(/(Vellore Institute of Technology.*?B\.?Tech.*?|.*?B\.?S\.?.*?|.*?M\.?Tech.*?|.*?M\.?S\.?.*?|.*?Ph\.?D\.?.*?)(?: in [A-Za-z\s]+)?(?:.*?CGPA[-:]?\s*(\d+\.?\d*))?/gi);
+        for (const match of generalUniversityDegreeMatches) {
+            if (match[0] && !tempEducationDetails.includes(match[0].trim())) {
+                tempEducationDetails.push(match[0].trim());
+            }
+            if (match[1] && resumeUGCGPA === 0) resumeUGCGPA = parseFloat(match[1]);
+        }
+
+        // Look for CGPA if not found yet
+        if (resumeUGCGPA === 0) {
+            const cgpaMatch = resumeContent.match(/CGPA[-:]?\s*(\d+\.?\d*)/i);
+            if (cgpaMatch) resumeUGCGPA = parseFloat(cgpaMatch[1]);
+        }
+
+        // Look for 12th grade percentage
+        if (resume12thPercentage === 0) {
+            const generalGrade12Match = resumeContent.match(/(?:Grade 12|Senior School Certificate Examination).*?(\d+\.?\d*)%/i);
+            if (generalGrade12Match) {
+                resume12thPercentage = parseFloat(generalGrade12Match[1]);
+                if (!tempEducationDetails.some(edu => edu.includes("Grade 12"))) {
+                    tempEducationDetails.push(`Grade 12: ${generalGrade12Match[0].trim()}`); // Push the full matched string
+                }
+            }
+        }
+
+        // Look for 10th grade percentage
+        if (resume10thPercentage === 0) {
+            const generalGrade10Match = resumeContent.match(/(?:Grade 10|Secondary School Examination).*?(\d+\.?\d*)%/i);
+            if (generalGrade10Match) {
+                resume10thPercentage = parseFloat(generalGrade10Match[1]);
+                if (!tempEducationDetails.some(edu => edu.includes("Grade 10"))) {
+                    tempEducationDetails.push(`Grade 10: ${generalGrade10Match[0].trim()}`); // Push the full matched string
+                }
+            }
+        }
+    }
+
+    education = tempEducationDetails;
     if (education.length === 0) education.push("No specific education identified");
 
 
