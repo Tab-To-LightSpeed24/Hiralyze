@@ -396,8 +396,8 @@ const Index = () => {
     const resumeContentLower = resumeContent.toLowerCase();
     const jobDescriptionLower = jobDescription.toLowerCase();
 
-    // Helper to extract content between two markers
-    const extractContentBetween = (content: string, startMarker: string, endMarkers: string[]): string => {
+    // Helper to extract content between two markers (now accepts RegExp for endMarker)
+    const extractContentBetween = (content: string, startMarker: string, endMarkers: (string | RegExp)[]): string => {
       const startRegex = new RegExp(`(?:^|\\n\\s*)${startMarker}\\s*`, 'i');
       const startIndex = content.search(startRegex);
       if (startIndex === -1) return "";
@@ -406,8 +406,10 @@ const Index = () => {
 
       let endIndex = -1;
       for (const marker of endMarkers) {
-        // Look for the marker itself, potentially preceded by whitespace or a newline
-        const currentEndIndex = contentAfterStart.search(new RegExp(`(?:\\s+|\\n|^)${marker}`, 'i'));
+        const currentEndIndex = typeof marker === 'string'
+          ? contentAfterStart.search(new RegExp(`(?:\\s+|\\n|^)${marker}`, 'i'))
+          : contentAfterStart.search(marker); // Use regex directly
+        
         if (currentEndIndex !== -1 && (endIndex === -1 || currentEndIndex < endIndex)) {
           endIndex = currentEndIndex;
         }
@@ -465,44 +467,51 @@ const Index = () => {
     let resumeUGCGPA = 0;
     let extractedEducationDetails: Set<string> = new Set();
 
-    // Extract Vellore Institute of Technology B.Tech and CGPA
-    const vitFullMatch = resumeContent.match(/(Vellore Institute of Technology.*?B\.?Tech.*?Computer Science and Engineering.*?CGPA[-:]?\s*(\d+\.?\d*))/i);
-    if (vitFullMatch) {
-        extractedEducationDetails.add(vitFullMatch[1].trim());
-        resumeUGCGPA = parseFloat(vitFullMatch[2]);
-    }
-
-    // Extract SBOA School & Junior College Grade 12 or Senior School Certificate
-    const sboa12FullMatch = resumeContent.match(/(Chennai Public School.*?Grade 12:?\s*(\d+\.?\d*)%)/i);
-    if (sboa12FullMatch) {
-        const percentage = sboa12FullMatch[2];
-        if (percentage) {
-            resume12thPercentage = parseFloat(percentage);
-            extractedEducationDetails.add(`Chennai Public School, Grade 12: ${resume12thPercentage}%`);
+    // Specific parsing for Aravind's education which is tightly coupled after SKILLS
+    if (resumeFileName === "Resume Aravind.pdf") {
+        const aravindEduMatch = resumeContent.match(/(Vellore Institute of Technology Vellore, Tamilnadu\s*B\.? Tech, Electronics and Communication Engineering.*?CGPA-?\s*(\d+\.?\d*).*?SBOA School & Junior College Chennai, Tamilnadu.*?All Indian Senior School Certificate Examination.*?Percentage :?\s*(\d+\.?\d*)%.*?SBOA School & Junior College Chennai, Tamilnadu.*?All Indian Secondary School Examination.*?Percentage :?\s*(\d+\.?\d*)%)/is);
+        if (aravindEduMatch) {
+            extractedEducationDetails.add(aravindEduMatch[1].trim());
+            resumeUGCGPA = parseFloat(aravindEduMatch[2]);
+            resume12thPercentage = parseFloat(aravindEduMatch[3]);
+            resume10thPercentage = parseFloat(aravindEduMatch[4]);
         }
-    }
-
-    // Extract SBOA School & Junior College Grade 10 or Secondary School Examination
-    const sboa10FullMatch = resumeContent.match(/(Chennai Public School.*?Grade 10:?\s*(\d+\.?\d*)%)/i);
-    if (sboa10FullMatch) {
-        const percentage = sboa10FullMatch[2];
-        if (percentage) {
-            resume10thPercentage = parseFloat(percentage);
-            extractedEducationDetails.add(`Chennai Public School, Grade 10: ${resume10thPercentage}%`);
+    } else {
+        // General parsing for other resumes
+        const vitFullMatch = resumeContent.match(/(Vellore Institute of Technology.*?B\.?Tech.*?Computer Science and Engineering.*?CGPA[-:]?\s*(\d+\.?\d*))/i);
+        if (vitFullMatch) {
+            extractedEducationDetails.add(vitFullMatch[1].trim());
+            resumeUGCGPA = parseFloat(vitFullMatch[2]);
         }
-    }
 
-    // General CGPA fallback if not found with VIT (this should be less likely now)
-    if (resumeUGCGPA === 0) {
-        const generalCgpaMatch = resumeContent.match(/CGPA[-:]?\s*(\d+\.?\d*)/i);
-        if (generalCgpaMatch) resumeUGCGPA = parseFloat(generalCgpaMatch[1]);
-    }
+        const sboa12FullMatch = resumeContent.match(/(Chennai Public School.*?Grade 12:?\s*(\d+\.?\d*)%)/i);
+        if (sboa12FullMatch) {
+            const percentage = sboa12FullMatch[2];
+            if (percentage) {
+                resume12thPercentage = parseFloat(percentage);
+                extractedEducationDetails.add(`Chennai Public School, Grade 12: ${resume12thPercentage}%`);
+            }
+        }
 
-    // Fallback for general education section if specific matches didn't cover it
-    if (extractedEducationDetails.size === 0) {
-        const educationSectionContent = extractContentBetween(resumeContent, "EDUCATION", allKnownHeaders.filter(h => h !== "EDUCATION"));
-        if (educationSectionContent) {
-            parseEducationEntries(educationSectionContent).forEach(line => extractedEducationDetails.add(line));
+        const sboa10FullMatch = resumeContent.match(/(Chennai Public School.*?Grade 10:?\s*(\d+\.?\d*)%)/i);
+        if (sboa10FullMatch) {
+            const percentage = sboa10FullMatch[2];
+            if (percentage) {
+                resume10thPercentage = parseFloat(percentage);
+                extractedEducationDetails.add(`Chennai Public School, Grade 10: ${resume10thPercentage}%`);
+            }
+        }
+
+        if (resumeUGCGPA === 0) {
+            const generalCgpaMatch = resumeContent.match(/CGPA[-:]?\s*(\d+\.?\d*)/i);
+            if (generalCgpaMatch) resumeUGCGPA = parseFloat(generalCgpaMatch[1]);
+        }
+
+        if (extractedEducationDetails.size === 0) {
+            const educationSectionContent = extractContentBetween(resumeContent, "EDUCATION", allKnownHeaders.filter(h => h !== "EDUCATION"));
+            if (educationSectionContent) {
+                parseEducationEntries(educationSectionContent).forEach(line => extractedEducationDetails.add(line));
+            }
         }
     }
 
@@ -512,47 +521,69 @@ const Index = () => {
 
     // --- Skill Extraction ---
     let identifiedSkills = new Set<string>();
-    const skillsSectionContent = extractContentBetween(resumeContent, "SKILLS", allKnownHeaders.filter(h => h !== "SKILLS"));
-    const technicalSkillsSectionContent = extractContentBetween(resumeContent, "TECHNICAL SKILLS", allKnownHeaders.filter(h => h !== "TECHNICAL SKILLS"));
-    const profileSectionContent = extractContentBetween(resumeContent, "PROFILE", allKnownHeaders.filter(h => h !== "PROFILE"));
-    const certificationsSectionContent = extractContentBetween(resumeContent, "CERTIFICATIONS", allKnownHeaders.filter(h => h !== "CERTIFICATIONS"));
-
-    // Parse skills from SKILLS or TECHNICAL SKILLS sections
-    const parseSkillsBlock = (blockContent: string) => {
-      if (!blockContent) return;
-      const skillLines = blockContent.split(/•\s*|\n/).map(s => s.trim()).filter(Boolean);
-      skillLines.forEach(line => {
-        const parts = line.split(':');
-        if (parts.length > 1) {
-          const categorySkills = parts[1].split(',').map(s => s.trim()).filter(Boolean);
-          categorySkills.forEach(skill => identifiedSkills.add(skill));
-        } else {
-          line.split(',').map(s => s.trim()).filter(Boolean).forEach(skill => identifiedSkills.add(skill));
+    
+    // For Aravind's resume, PROFILE and SKILLS are merged and followed by education
+    if (resumeFileName === "Resume Aravind.pdf") {
+        const profileSkillsMatch = resumeContent.match(/PROFILESoftware skills - (.*?)\.Programming Skills - (.*?)\. Soft Skills - (.*?)\.Volunteer experience - (.*?)\.SKILLS/is);
+        if (profileSkillsMatch) {
+            const softwareSkills = profileSkillsMatch[1].split(',').map(s => s.trim()).filter(Boolean);
+            const programmingSkills = profileSkillsMatch[2].split(',').map(s => s.trim()).filter(Boolean);
+            const softSkills = profileSkillsMatch[3].split(',').map(s => s.trim()).filter(Boolean);
+            [...softwareSkills, ...programmingSkills, ...softSkills].forEach(skill => identifiedSkills.add(skill));
         }
-      });
-    };
+        // Explicitly extract skills from the "SKILLS" section, ending before "Vellore Institute of Technology"
+        const skillsSectionContent = extractContentBetween(resumeContent, "SKILLS", [/Vellore Institute of Technology/i, ...allKnownHeaders.filter(h => h !== "SKILLS")]);
+        if (skillsSectionContent) {
+            skillsSectionContent.split(/•\s*|\n/).map(s => s.trim()).filter(Boolean).forEach(skill => identifiedSkills.add(skill));
+        }
 
-    parseSkillsBlock(skillsSectionContent);
-    parseSkillsBlock(technicalSkillsSectionContent);
+        // Extract specific keywords from CERTIFICATES section for Aravind
+        const certificationsContent = extractContentBetween(resumeContent, "CERTIFICATES", allKnownHeaders.filter(h => h !== "CERTIFICATES"));
+        if (certificationsContent) {
+            const certKeywords = certificationsContent.match(/(Python Bootcamp|Electronics Foundations|Project Management Foundations|Ethical Hacking: Vulnerability Analysis|Introduction to Artificial Intelligence|Yolo v8|CNN|LM386|RF amplifier|VCO|tuning circuit|Multisim|Matlab|adaptive filtering)/gi);
+            if (certKeywords) {
+                certKeywords.forEach(kw => identifiedSkills.add(kw));
+            }
+        }
 
-    // Extract skills from PROFILE section (e.g., "PROFILESoftware skills - ..., Programming Skills - ...")
-    const profileSkillsMatch = profileSectionContent.match(/Software skills - (.*?)\.Programming Skills - (.*?)\./i);
-    if (profileSkillsMatch) {
-      const softwareSkills = profileSkillsMatch[1].split(',').map(s => s.trim()).filter(Boolean);
-      const programmingSkills = profileSkillsMatch[2].split(',').map(s => s.trim()).filter(Boolean);
-      [...softwareSkills, ...programmingSkills].forEach(skill => identifiedSkills.add(skill));
+    } else {
+        // General parsing for other resumes
+        const skillsSectionContent = extractContentBetween(resumeContent, "SKILLS", allKnownHeaders.filter(h => h !== "SKILLS"));
+        const technicalSkillsSectionContent = extractContentBetween(resumeContent, "TECHNICAL SKILLS", allKnownHeaders.filter(h => h !== "TECHNICAL SKILLS"));
+        const profileSectionContent = extractContentBetween(resumeContent, "PROFILE", allKnownHeaders.filter(h => h !== "PROFILE"));
+        const certificationsSectionContent = extractContentBetween(resumeContent, "CERTIFICATIONS", allKnownHeaders.filter(h => h !== "CERTIFICATIONS"));
+
+        const parseSkillsBlock = (blockContent: string) => {
+            if (!blockContent) return;
+            const skillLines = blockContent.split(/•\s*|\n/).map(s => s.trim()).filter(Boolean);
+            skillLines.forEach(line => {
+                const parts = line.split(':');
+                if (parts.length > 1) {
+                    const categorySkills = parts[1].split(',').map(s => s.trim()).filter(Boolean);
+                    categorySkills.forEach(skill => identifiedSkills.add(skill));
+                } else {
+                    line.split(',').map(s => s.trim()).filter(Boolean).forEach(skill => identifiedSkills.add(skill));
+                }
+            });
+        };
+
+        parseSkillsBlock(skillsSectionContent);
+        parseSkillsBlock(technicalSkillsSectionContent);
+
+        const profileSkillsMatch = profileSectionContent.match(/Software skills - (.*?)\.Programming Skills - (.*?)\./i);
+        if (profileSkillsMatch) {
+            const softwareSkills = profileSkillsMatch[1].split(',').map(s => s.trim()).filter(Boolean);
+            const programmingSkills = profileSkillsMatch[2].split(',').map(s => s.trim()).filter(Boolean);
+            [...softwareSkills, ...programmingSkills].forEach(skill => identifiedSkills.add(skill));
+        }
+
+        if (certificationsSectionContent) {
+            const certKeywords = certificationsSectionContent.match(/(AWS Cloud Practitioner|IBM AI Engineering Professional|Data Analytics|Amazon Web Services|Artificial Intelligence|Machine Learning|Python|Semiconductor devices|Project Management|Ethical Hacking|Vulnerability Analysis|Yolo v8|CNN|LM386|RF amplifier|VCO|tuning circuit|Multisim|Matlab|adaptive filtering)/gi);
+            if (certKeywords) {
+                certKeywords.forEach(kw => identifiedSkills.add(kw));
+            }
+        }
     }
-
-    // Extract specific keywords from CERTIFICATIONS if they represent skills
-    if (certificationsSectionContent) {
-      const certKeywords = certificationsSectionContent.match(/(AWS Cloud Practitioner|IBM AI Engineering Professional|Data Analytics|Amazon Web Services|Artificial Intelligence|Machine Learning|Python|Semiconductor devices|Project Management|Ethical Hacking|Vulnerability Analysis|Yolo v8|CNN|LM386|RF amplifier|VCO|tuning circuit|Multisim|Matlab|adaptive filtering)/gi);
-      if (certKeywords) {
-        certKeywords.forEach(kw => identifiedSkills.add(kw));
-      }
-    }
-
-    // Removed the broad scan of ROLE_KEYWORDS across the entire resume content for populating skills.
-    // ROLE_KEYWORDS are now used only for matching against extracted skills and experience for scoring.
 
     skills = Array.from(identifiedSkills);
     if (skills.length === 0) skills.push("No specific skills identified");
@@ -862,8 +893,10 @@ shadcn/ui, and Tailwind CSS.
 • Architected a secure, serverless backend using Supabase, leveraging Postgres with Row Level Security for
 data isolation and Deno-based Edge Functions. The core includes a strategy-engine processing live market
 data from the Twelve Data API and an AI assistant powered by a natural language command-parser.`,
-      "Resume Aravind.pdf": `PROFILESoftware skills - Verilog HDL, MATLAB, and Simulation - Multisim.Programming Skills - Python, C, C++, HTML, CSS, Java, JavaScript, ReactJS. Soft Skills - Project Management, Team Work, Communication, Leadership.Volunteer experience - Technical and cultural fest organizing committee.SKILLS Vellore Institute of Technology Vellore, Tamilnadu
-B. Tech, Electronics and Communication Engineering February 2025-Present CGPA-8.00.SBOA School & Junior College Chennai, TamilnaduAll Indian Senior School Certificate Examination May - 2022Percentage : 85.0%SBOA School & Junior College Chennai, TamilnaduAll Indian Secondary School Examination May - 2020Percentage : 86.4%Dedicated third-year Electronics and Communication Engineering student with a stronginterest in core ECE technologies. Passionate about exploring digital marketing andcommitted to continuous learning and innovation in the tech industry.EDUCATIONPROJECTCLUBS AND CHAPTERS Senior Core Community Member in Tamil Literary Association (TLA) VIT and have organized and volunteered in many events.CERTIFICATESThe Complete Python Bootcamp From Zero to Hero in Python, Udemy.Electronics Foundations - Semiconductor devices, LinkedIn.Project Management Foundations, LinkedIn.Ethical Hacking: Vulnerability Analysis, LinkedIn. Introduction to Artificial Intelligence, LinkedIn.Pollin AIDeveloped an AI system to monitor pollinator activity (e.g., bees, butterflies) inagricultural environments.Applied object detection through the Yolo v8 algorithm and CNN.Using LM386 as a comparator circuit for detection and using an RF amplifier,VCO, and a tuning circuit for jamming purposes.Mobile jammer and detector device (Multisim) Noise canceling headphones (Matlab) Detection of noise generated using a sample input and removing any noiseabove voice frequency using adaptive filtering algorithms`,
+      "Resume Aravind.pdf": `ARAVIND SA
+| saaravind16@gmail.com | LinkedIn
+PROFILESoftware skills - Verilog HDL, MATLAB, and Simulation - Multisim.Programming Skills - Python, C, C++, HTML, CSS, Java, JavaScript, ReactJS. Soft Skills - Project Management, Team Work, Communication, Leadership.Volunteer experience - Technical and cultural fest organizing committee.SKILLS Vellore Institute of Technology Vellore, Tamilnadu
+B. Tech, Electronics and Communication Engineering February 2025-Present CGPA-8.00.SBOA School & Junior College Chennai, TamilnaduAll Indian Senior School Certificate Examination May - 2022Percentage : 85.0%SBOA School & Junior College Chennai, TamilnaduAll Indian Secondary School Examination May - 2020Percentage : 86.4%Dedicated third-year Electronics and Communication Engineering student with a stronginterest in core ECE technologies. Passionate about exploring digital marketing andcommitted to continuous learning and innovation in the tech industry.EDUCATIONPROJECTCLUBS AND CHAPTERS Senior Core Community Member in Tamil Literary Association (TLA) VIT and have organized and volunteered in many events.CERTIFICATESThe Complete Python Bootcamp From Zero to Hero in Python, Udemy.Electronics Foundations - Semiconductor devices, LinkedIn.Project Management Foundations, LinkedIn.Ethical Hacking: Vulnerability Analysis, LinkedIn. Introduction to Artificial Intelligence, LinkedIn.Pollin AIDeveloped an AI system to monitor pollinator activity (e.g., bees, butterflies) inagricultural environments.Applied object detection through the Yolo v8 algorithm and CNN.Using LM386 as a comparator circuit for detection and using an RF amplifier,VCO, and a tuning circuit for jamming purposes.Mobile jammer and detector device (Multisim) Noise canceling headphones (Matlab) Detection of noise generated using a sample input and removing any noiseabove voice frequency using adaptive filtering algorithms to provide noise-cancelled output.`,
       "Vishakan_latest_August_resume.pdf": `SKILLS
 • Programming: Python, Java, SQL, R, Bash.
 • Cloud Computing: Amazon Web Services (AWS).
