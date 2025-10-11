@@ -452,8 +452,8 @@ const Index = () => {
       jdCriteria.requiredExperienceKeywords = jdPrimaryRoleKeywords; // Assuming role keywords cover both skills and experience for simplicity
     }
 
-    // Helper to parse lines into distinct entries
-    const parseSectionEntries = (text: string): string[] => {
+    // Helper to parse lines into distinct entries for education
+    const parseEducationEntries = (text: string): string[] => {
       return text.split('\n')
                  .map(line => line.trim())
                  .filter(line => line.length > 0 && !/^\s*•\s*$/.test(line)); // Filter out empty lines and standalone bullets
@@ -502,7 +502,7 @@ const Index = () => {
     if (extractedEducationDetails.size === 0) {
         const educationSectionContent = extractContentBetween(resumeContent, "EDUCATION", allKnownHeaders.filter(h => h !== "EDUCATION"));
         if (educationSectionContent) {
-            parseSectionEntries(educationSectionContent).forEach(line => extractedEducationDetails.add(line));
+            parseEducationEntries(educationSectionContent).forEach(line => extractedEducationDetails.add(line));
         }
     }
 
@@ -560,28 +560,53 @@ const Index = () => {
     // --- Experience Parsing ---
     const tempExperience: string[] = [];
 
+    const parseExperienceEntries = (text: string): string[] => {
+      const entries: string[] = [];
+      let currentEntry: string[] = [];
+
+      const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
+
+      for (const line of lines) {
+        // If it's a bullet point or a line that doesn't look like a new heading, append to current entry
+        // A new heading is typically capitalized and not a bullet.
+        if (line.startsWith('•') || !/^[A-Z]/.test(line)) {
+          currentEntry.push(line);
+        } else {
+          // New heading, push previous entry and start new one
+          if (currentEntry.length > 0) {
+            entries.push(currentEntry.join('\n'));
+          }
+          currentEntry = [line];
+        }
+      }
+      if (currentEntry.length > 0) {
+        entries.push(currentEntry.join('\n'));
+      }
+      return entries;
+    };
+
     // Specific handling for Aravind's embedded PROJECT section
     const aravindProjectMatch = resumeContent.match(/PROJECT\s*(.*?)(?:CLUBS AND CHAPTERS|CERTIFICATES|EDUCATION|$)/is);
     if (aravindProjectMatch && aravindProjectMatch[1]) {
-        tempExperience.push(...parseSectionEntries(aravindProjectMatch[1]));
+        tempExperience.push(...parseExperienceEntries(aravindProjectMatch[1]));
     } else {
         // General parsing for WORK EXPERIENCE
         const workExperienceSectionContent = extractContentBetween(resumeContent, "WORK EXPERIENCE", allKnownHeaders.filter(h => h !== "WORK EXPERIENCE"));
         if (workExperienceSectionContent) {
-            tempExperience.push(...parseSectionEntries(workExperienceSectionContent));
+            tempExperience.push(...parseExperienceEntries(workExperienceSectionContent));
         }
 
         // General parsing for PROJECTS (if not handled by Aravind's specific case)
         const projectsSectionContent = extractContentBetween(resumeContent, "PROJECTS", allKnownHeaders.filter(h => h !== "PROJECTS"));
         if (projectsSectionContent) {
-            tempExperience.push(...parseSectionEntries(projectsSectionContent));
+            tempExperience.push(...parseExperienceEntries(projectsSectionContent));
         }
     }
     
     // Also add certifications as experience entries if they are substantial
     const certificationsContent = extractContentBetween(resumeContent, "CERTIFICATIONS", allKnownHeaders.filter(h => h !== "CERTIFICATIONS"));
     if (certificationsContent) {
-        tempExperience.push(...parseSectionEntries(certificationsContent));
+        tempExperience.push(...parseExperienceEntries(certificationsContent));
     }
 
     experience = tempExperience;
