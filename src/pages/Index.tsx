@@ -72,7 +72,8 @@ const Index = () => {
 
       let endIndex = -1;
       for (const marker of endMarkers) {
-        const currentEndIndex = contentAfterStart.search(new RegExp(`\\n\\s*${marker}`, 'i'));
+        // Look for the marker itself, potentially preceded by whitespace or a newline
+        const currentEndIndex = contentAfterStart.search(new RegExp(`(?:\\s+|\\n|^)${marker}`, 'i'));
         if (currentEndIndex !== -1 && (endIndex === -1 || currentEndIndex < endIndex)) {
           endIndex = currentEndIndex;
         }
@@ -101,42 +102,36 @@ const Index = () => {
     let resume10thPercentage = 0;
     let resume12thPercentage = 0;
     let resumeUGCGPA = 0;
-    let extractedEducationDetails: Set<string> = new Set(); // Use a Set to store unique entries
+    let extractedEducationDetails: Set<string> = new Set();
 
-    // 1. Extract Vellore Institute of Technology details
-    const vitMatch = resumeContent.match(/Vellore Institute of Technology.*?(B\.?Tech.*?CGPA[-:]?\s*(\d+\.?\d*))/i);
-    if (vitMatch) {
-        extractedEducationDetails.add(`Vellore Institute of Technology, ${vitMatch[1].trim()}`);
-        resumeUGCGPA = parseFloat(vitMatch[2]);
+    // Extract Vellore Institute of Technology B.Tech and CGPA
+    const vitFullMatch = resumeContent.match(/(Vellore Institute of Technology.*?B\.?Tech.*?Electronics and Communication Engineering.*?CGPA[-:]?\s*(\d+\.?\d*))/i);
+    if (vitFullMatch) {
+        extractedEducationDetails.add(vitFullMatch[1].trim());
+        resumeUGCGPA = parseFloat(vitFullMatch[2]);
     }
 
-    // 2. Extract SBOA School & Junior College Grade 12 details
-    const sboa12Match = resumeContent.match(/SBOA School & Junior College.*?Grade 12:?\s*(\d+\.?\d*)%/i);
-    if (sboa12Match) {
-        resume12thPercentage = parseFloat(sboa12Match[1]);
-        extractedEducationDetails.add(`SBOA School & Junior College, Grade 12: ${resume12thPercentage}%`);
-    } else { // Fallback for "All Indian Senior School Certificate Examination"
-        const sboa12AltMatch = resumeContent.match(/SBOA School & Junior College.*?All Indian Senior School Certificate Examination.*?Percentage :?\s*(\d+\.?\d*)%/i);
-        if (sboa12AltMatch) {
-            resume12thPercentage = parseFloat(sboa12AltMatch[1]);
+    // Extract SBOA School & Junior College Grade 12 or Senior School Certificate
+    const sboa12FullMatch = resumeContent.match(/(SBOA School & Junior College.*?Grade 12:?\s*(\d+\.?\d*)%|SBOA School & Junior College.*?All Indian Senior School Certificate Examination.*?Percentage :?\s*(\d+\.?\d*)%)/i);
+    if (sboa12FullMatch) {
+        const percentage = sboa12FullMatch[2] || sboa12FullMatch[3];
+        if (percentage) {
+            resume12thPercentage = parseFloat(percentage);
             extractedEducationDetails.add(`SBOA School & Junior College, Grade 12: ${resume12thPercentage}%`);
         }
     }
 
-    // 3. Extract SBOA School & Junior College Grade 10 details
-    const sboa10Match = resumeContent.match(/SBOA School & Junior College.*?Grade 10:?\s*(\d+\.?\d*)%/i);
-    if (sboa10Match) {
-        resume10thPercentage = parseFloat(sboa10Match[1]);
-        extractedEducationDetails.add(`SBOA School & Junior College, Grade 10: ${resume10thPercentage}%`);
-    } else { // Fallback for "All Indian Secondary School Examination"
-        const sboa10AltMatch = resumeContent.match(/SBOA School & Junior College.*?All Indian Secondary School Examination.*?Percentage :?\s*(\d+\.?\d*)%/i);
-        if (sboa10AltMatch) {
-            resume10thPercentage = parseFloat(sboa10AltMatch[1]);
+    // Extract SBOA School & Junior College Grade 10 or Secondary School Examination
+    const sboa10FullMatch = resumeContent.match(/(SBOA School & Junior College.*?Grade 10:?\s*(\d+\.?\d*)%|SBOA School & Junior College.*?All Indian Secondary School Examination.*?Percentage :?\s*(\d+\.?\d*)%)/i);
+    if (sboa10FullMatch) {
+        const percentage = sboa10FullMatch[2] || sboa10FullMatch[3];
+        if (percentage) {
+            resume10thPercentage = parseFloat(percentage);
             extractedEducationDetails.add(`SBOA School & Junior College, Grade 10: ${resume10thPercentage}%`);
         }
     }
 
-    // General CGPA fallback if not found with VIT
+    // General CGPA fallback if not found with VIT (this should be less likely now)
     if (resumeUGCGPA === 0) {
         const generalCgpaMatch = resumeContent.match(/CGPA[-:]?\s*(\d+\.?\d*)/i);
         if (generalCgpaMatch) resumeUGCGPA = parseFloat(generalCgpaMatch[1]);
@@ -205,14 +200,22 @@ const Index = () => {
                  .filter(Boolean);
     };
 
-    const workExperienceSectionContent = extractContentBetween(resumeContent, "WORK EXPERIENCE", allKnownHeaders.filter(h => h !== "WORK EXPERIENCE"));
-    if (workExperienceSectionContent) {
-      tempExperience.push(...parseBulletPoints(workExperienceSectionContent));
-    }
+    // Specific handling for Aravind's embedded PROJECT section
+    const aravindProjectMatch = resumeContent.match(/PROJECT\s*(.*?)(?:CLUBS AND CHAPTERS|CERTIFICATES|EDUCATION|$)/is);
+    if (aravindProjectMatch && aravindProjectMatch[1]) {
+        tempExperience.push(...parseBulletPoints(aravindProjectMatch[1]));
+    } else {
+        // General parsing for WORK EXPERIENCE
+        const workExperienceSectionContent = extractContentBetween(resumeContent, "WORK EXPERIENCE", allKnownHeaders.filter(h => h !== "WORK EXPERIENCE"));
+        if (workExperienceSectionContent) {
+            tempExperience.push(...parseBulletPoints(workExperienceSectionContent));
+        }
 
-    const projectsSectionContent = extractContentBetween(resumeContent, "PROJECTS", allKnownHeaders.filter(h => h !== "PROJECTS"));
-    if (projectsSectionContent) {
-      tempExperience.push(...parseBulletPoints(projectsSectionContent));
+        // General parsing for PROJECTS (if not handled by Aravind's specific case)
+        const projectsSectionContent = extractContentBetween(resumeContent, "PROJECTS", allKnownHeaders.filter(h => h !== "PROJECTS"));
+        if (projectsSectionContent) {
+            tempExperience.push(...parseBulletPoints(projectsSectionContent));
+        }
     }
     
     experience = tempExperience;
