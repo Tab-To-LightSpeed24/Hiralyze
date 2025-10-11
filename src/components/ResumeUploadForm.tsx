@@ -1,12 +1,13 @@
 import React, { useState, useCallback } from "react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { NeonCard, NeonCardContent, NeonCardHeader, NeonCardTitle } from "@/components/NeonCard"; // Use NeonCard
+import { NeonButton } from "@/components/NeonButton"; // Use NeonButton
 import { showSuccess, showError } from "@/utils/toast";
 import { motion } from "framer-motion";
 import { UploadCloud, FileText } from "lucide-react";
+import { cn } from '@/lib/utils';
 
 interface ResumeUploadFormProps {
   onProcessResumes: (jobDescription: string, files: File[]) => void;
@@ -92,14 +93,14 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes })
       variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
       className="w-full max-w-2xl mx-auto"
     >
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center">Hiralyze: Match Resumes to Jobs</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <NeonCard className="w-full"> {/* Use NeonCard */}
+        <NeonCardHeader> {/* Use NeonCardHeader */}
+          <NeonCardTitle className="text-center">Hiralyze: Match Resumes to Jobs</NeonCardTitle> {/* Use NeonCardTitle */}
+        </NeonCardHeader>
+        <NeonCardContent> {/* Use NeonCardContent */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <motion.div variants={itemVariants} className="grid w-full items-center gap-1.5">
-              <Label htmlFor="job-description">Job Description</Label>
+              <Label htmlFor="job-description" className="text-primary text-neon-glow">Job Description</Label>
               <Textarea
                 id="job-description"
                 placeholder="Paste the job description here..."
@@ -111,18 +112,21 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes })
             </motion.div>
 
             <motion.div variants={itemVariants} className="grid w-full items-center gap-1.5">
-              <Label htmlFor="resumes">Upload Resumes (PDF/Text/Word)</Label>
+              <Label htmlFor="resumes" className="text-primary text-neon-glow">Upload Resumes (PDF/Text/Word)</Label>
               <div
-                className={`border-2 border-dashed rounded-md p-6 text-center cursor-pointer transition-colors ${
-                  isDragging ? "border-primary bg-primary/10" : "border-muted-foreground/50 hover:border-primary"
-                }`}
+                className={cn(
+                  `border-2 border-dashed rounded-md p-6 text-center cursor-pointer transition-colors relative`,
+                  isDragging ? "border-primary bg-primary/10 shadow-neon-glow" : "border-primary/50 hover:border-primary hover:shadow-primary/20",
+                  "before:absolute before:inset-0 before:bg-gradient-to-br before:from-primary/5 before:to-transparent before:opacity-0 before:transition-opacity before:duration-300",
+                  "hover:before:opacity-100"
+                )}
                 onDragEnter={handleDragEnter}
                 onDragLeave={handleDragLeave}
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
                 onClick={() => document.getElementById('resumes')?.click()}
               >
-                <UploadCloud className="mx-auto h-12 w-12 text-muted-foreground mb-2" />
+                <UploadCloud className="mx-auto h-12 w-12 text-primary text-neon-glow mb-2" />
                 <p className="text-muted-foreground">Drag & drop resumes here, or click to select files</p>
                 <Input
                   id="resumes"
@@ -135,10 +139,10 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes })
               </div>
               {resumeFiles.length > 0 && (
                 <div className="mt-2 space-y-1">
-                  <p className="text-sm font-medium">Selected Files:</p>
+                  <p className="text-sm font-medium text-primary text-neon-glow">Selected Files:</p>
                   {resumeFiles.map((file, index) => (
                     <div key={index} className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <FileText className="h-4 w-4" />
+                      <FileText className="h-4 w-4 text-primary" />
                       <span>{file.name}</span>
                     </div>
                   ))}
@@ -147,13 +151,13 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes })
             </motion.div>
 
             <motion.div variants={itemVariants}>
-              <Button type="submit" className="w-full">
+              <NeonButton type="submit" className="w-full"> {/* Use NeonButton */}
                 Process Resumes
-              </Button>
+              </NeonButton>
             </motion.div>
           </form>
-        </CardContent>
-      </Card>
+        </NeonCardContent>
+      </NeonCard>
     </motion.div>
   );
 };

@@ -5,6 +5,7 @@ import { Candidate } from "@/types";
 import { Separator } from "@/components/ui/separator";
 import { motion } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; // Import Tabs components
+import { cn } from '@/lib/utils';
 
 // Define the comprehensive list of roles and their core keywords
 const ROLE_KEYWORDS: { [key: string]: string[] } = {
@@ -1036,7 +1037,7 @@ CERTIFICATIONS
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-center text-lg text-primary font-medium mt-8"
+            className="text-center text-lg text-primary font-medium mt-8 text-neon-glow"
           >
             Processing resumes...
           </motion.div>
@@ -1044,28 +1045,38 @@ CERTIFICATIONS
 
         {(shortlistedCandidates.length > 0 || notShortlistedCandidates.length > 0) && !processing && (
           <motion.div variants={itemVariants}>
-            <Separator className="my-8" />
+            <Separator className="my-8 bg-primary/30" />
             <motion.h2
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="text-3xl font-bold text-center mb-8"
+              className="text-3xl font-bold text-center mb-8 text-primary text-neon-glow"
             >
               Candidate Results
             </motion.h2>
             <Tabs defaultValue="shortlisted" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="shortlisted">Shortlisted ({shortlistedCandidates.length})</TabsTrigger>
-                <TabsTrigger value="not-shortlisted">Not Shortlisted ({notShortlistedCandidates.length})</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 bg-secondary/30 border border-primary/50 shadow-neon-glow-sm">
+                <TabsTrigger 
+                  value="shortlisted" 
+                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-neon-glow data-[state=active]:border-primary data-[state=active]:border-b-0 data-[state=active]:skew-x-[-10deg] data-[state=active]:transform data-[state=active]:rounded-t-md data-[state=active]:rounded-b-none transition-all duration-300"
+                >
+                  <span className="inline-block skew-x-[10deg] transform">Shortlisted ({shortlistedCandidates.length})</span>
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="not-shortlisted" 
+                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-neon-glow data-[state=active]:border-primary data-[state=active]:border-b-0 data-[state=active]:skew-x-[-10deg] data-[state=active]:transform data-[state=active]:rounded-t-md data-[state=active]:rounded-b-none transition-all duration-300"
+                >
+                  <span className="inline-block skew-x-[10deg] transform">Not Shortlisted ({notShortlistedCandidates.length})</span>
+                </TabsTrigger>
               </TabsList>
-              <TabsContent value="shortlisted" className="mt-6">
+              <TabsContent value="shortlisted" className="mt-6 border border-primary/50 rounded-b-lg rounded-tr-lg p-4 bg-secondary/10 shadow-neon-glow-sm">
                 {shortlistedCandidates.length > 0 ? (
                   <CandidateList candidates={shortlistedCandidates} />
                 ) : (
                   <p className="text-center text-muted-foreground p-8">No candidates were shortlisted.</p>
                 )}
               </TabsContent>
-              <TabsContent value="not-shortlisted" className="mt-6">
+              <TabsContent value="not-shortlisted" className="mt-6 border border-primary/50 rounded-b-lg rounded-tr-lg p-4 bg-secondary/10 shadow-neon-glow-sm">
                 {notShortlistedCandidates.length > 0 ? (
                   <CandidateList candidates={notShortlistedCandidates} />
                 ) : (
