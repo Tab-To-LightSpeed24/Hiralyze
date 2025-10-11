@@ -1,9 +1,12 @@
 import React from "react";
-import { NeonCard, NeonCardContent, NeonCardHeader, NeonCardTitle, NeonCardDescription } from "@/components/NeonCard"; // Use NeonCard
+import { NeonCard, NeonCardContent, NeonCardHeader, NeonCardTitle, NeonCardDescription } from "@/components/NeonCard";
 import { Badge } from "@/components/ui/badge";
 import { Candidate } from "@/types";
 import { motion } from "framer-motion";
 import { cn } from '@/lib/utils';
+
+// Define MotionDiv as a direct alias for motion.div to help SWC parser
+const MotionDiv = motion.div;
 
 interface CandidateCardProps {
   candidate: Candidate;
@@ -32,48 +35,48 @@ const CandidateCard: React.FC<CandidateCardProps> = ({ candidate, index }) => {
   };
 
   return (
-    <motion.div
+    <MotionDiv // Using the alias here
       variants={cardVariants}
       initial="hidden"
       animate="visible"
       whileHover="hover"
     >
-      <NeonCard className="w-full h-full flex flex-col"> {/* Use NeonCard */}
-        <NeonCardHeader> {/* Use NeonCardHeader */}
-          <NeonCardTitle className="flex justify-between items-center flex-wrap gap-2"> {/* Added flex-wrap and gap-2 */}
-            <span className="flex-grow min-w-0">{candidate.name}</span> {/* Added flex-grow and min-w-0 */}
+      <NeonCard className="w-full h-full flex flex-col">
+        <NeonCardHeader>
+          <NeonCardTitle className="flex justify-between items-center flex-wrap gap-2">
+            <span className="flex-grow min-w-0">{candidate.name}</span>
             <Badge 
               variant="outline" 
               className={cn(
                 "text-lg px-3 py-1 border-primary text-primary bg-primary/10",
-                "shadow-neon-glow-sm flex-shrink-0" // Added flex-shrink-0
+                "shadow-neon-glow-sm flex-shrink-0"
               )}
             >
               Score: {candidate.matchScore}/10
             </Badge>
           </NeonCardTitle>
-          <NeonCardDescription className="text-sm text-muted-foreground break-words"> {/* Added break-words */}
+          <NeonCardDescription className="text-sm text-muted-foreground break-words">
             {candidate.email} | Resume: {candidate.resumeFileName}
           </NeonCardDescription>
         </NeonCardHeader>
-        <NeonCardContent className="space-y-4 flex-grow"> {/* Use NeonCardContent */}
+        <NeonCardContent className="space-y-4 flex-grow">
           {candidate.suggestedRole && (
             <div>
               <h4 className="font-semibold mb-1 text-primary text-neon-glow">Suggested Role:</h4>
-              <Badge variant="default" className="text-base px-3 py-1 bg-primary text-primary-foreground shadow-neon-glow-sm break-words">{candidate.suggestedRole}</Badge> {/* Added break-words */}
+              <Badge variant="default" className="text-base px-3 py-1 bg-primary text-primary-foreground shadow-neon-glow-sm break-words">{candidate.suggestedRole}</Badge>
             </div>
           )}
           <div>
             <h4 className="font-semibold mb-1 text-primary text-neon-glow">Skills:</h4>
             <div className="flex flex-wrap gap-2">
               {candidate.skills.map((skill, skillIndex) => (
-                <Badge key={skillIndex} variant="outline" className="border-primary/50 text-muted-foreground bg-secondary/20 break-words">{skill}</Badge> {/* Added break-words */}
+                <Badge key={skillIndex} variant="outline" className="border-primary/50 text-muted-foreground bg-secondary/20 break-words">{skill}</Badge>
               ))}
             </div>
           </div>
           <div>
             <h4 className="font-semibold mb-1 text-primary text-neon-glow">Experience:</h4>
-            <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 break-words"> {/* Added break-words */}
+            <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 break-words">
               {candidate.experience.map((exp, expIndex) => (
                 <li key={expIndex}>{exp}</li>
               ))}
@@ -81,7 +84,7 @@ const CandidateCard: React.FC<CandidateCardProps> = ({ candidate, index }) => {
           </div>
           <div>
             <h4 className="font-semibold mb-1 text-primary text-neon-glow">Education:</h4>
-            <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 break-words"> {/* Added break-words */}
+            <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 break-words">
               {candidate.education.map((edu, eduIndex) => (
                 <li key={eduIndex}>{edu}</li>
               ))}
@@ -89,11 +92,11 @@ const CandidateCard: React.FC<CandidateCardProps> = ({ candidate, index }) => {
           </div>
           <div>
             <h4 className="font-semibold mb-1 text-primary text-neon-glow">Justification:</h4>
-            <p className="text-sm text-muted-foreground break-words">{candidate.justification}</p> {/* Added break-words */}
+            <p className="text-sm text-muted-foreground break-words">{candidate.justification}</p>
           </div>
         </NeonCardContent>
       </NeonCard>
-    </motion.div>
+    </MotionDiv>
   );
 };
 
