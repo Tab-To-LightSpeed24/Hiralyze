@@ -402,7 +402,7 @@ const Index = () => {
       const startIndex = content.search(startRegex);
       if (startIndex === -1) return "";
 
-      const contentAfterStart = content.substring(startIndex + content.match(startRegex)?.[0].length || 0);
+      const contentAfterStart = content.substring(startIndex + (content.match(startRegex)?.[0].length || 0));
 
       let endIndex = -1;
       for (const marker of endMarkers) {
@@ -452,6 +452,12 @@ const Index = () => {
       jdCriteria.requiredExperienceKeywords = jdPrimaryRoleKeywords; // Assuming role keywords cover both skills and experience for simplicity
     }
 
+    // Helper to parse lines into distinct entries
+    const parseSectionEntries = (text: string): string[] => {
+      return text.split('\n')
+                 .map(line => line.trim())
+                 .filter(line => line.length > 0 && !/^\s*•\s*$/.test(line)); // Filter out empty lines and standalone bullets
+    };
 
     // --- Education Parsing ---
     let resume10thPercentage = 0;
@@ -492,6 +498,14 @@ const Index = () => {
         if (generalCgpaMatch) resumeUGCGPA = parseFloat(generalCgpaMatch[1]);
     }
 
+    // Fallback for general education section if specific matches didn't cover it
+    if (extractedEducationDetails.size === 0) {
+        const educationSectionContent = extractContentBetween(resumeContent, "EDUCATION", allKnownHeaders.filter(h => h !== "EDUCATION"));
+        if (educationSectionContent) {
+            parseSectionEntries(educationSectionContent).forEach(line => extractedEducationDetails.add(line));
+        }
+    }
+
     education = Array.from(extractedEducationDetails);
     if (education.length === 0) education.push("No specific education identified");
 
@@ -529,7 +543,7 @@ const Index = () => {
       [...softwareSkills, ...programmingSkills].forEach(skill => identifiedSkills.add(skill));
     }
 
-    // Extract skills from CERTIFICATIONS
+    // Extract specific keywords from CERTIFICATIONS if they represent skills
     if (certificationsSectionContent) {
       const certKeywords = certificationsSectionContent.match(/(AWS Cloud Practitioner|IBM AI Engineering Professional|Data Analytics|Amazon Web Services|Artificial Intelligence|Machine Learning|Python|Semiconductor devices|Project Management|Ethical Hacking|Vulnerability Analysis|Yolo v8|CNN|LM386|RF amplifier|VCO|tuning circuit|Multisim|Matlab|adaptive filtering)/gi);
       if (certKeywords) {
@@ -537,42 +551,39 @@ const Index = () => {
       }
     }
 
-    // Scan resume content for keywords from ROLE_KEYWORDS
-    Object.values(ROLE_KEYWORDS).flat().forEach(keyword => {
-      if (resumeContentLower.includes(keyword.toLowerCase())) {
-        identifiedSkills.add(keyword);
-      }
-    });
+    // Removed the broad scan of ROLE_KEYWORDS across the entire resume content for populating skills.
+    // ROLE_KEYWORDS are now used only for matching against extracted skills and experience for scoring.
+
     skills = Array.from(identifiedSkills);
     if (skills.length === 0) skills.push("No specific skills identified");
 
     // --- Experience Parsing ---
     const tempExperience: string[] = [];
 
-    const parseBulletPoints = (text: string): string[] => {
-      return text.split(/•\s*|\n(?=\s*[A-Z][a-z]+(?: [A-Z][a-z]+)*:)/) // Split by bullet or new line followed by a potential header
-                 .map(line => line.trim())
-                 .filter(Boolean);
-    };
-
     // Specific handling for Aravind's embedded PROJECT section
     const aravindProjectMatch = resumeContent.match(/PROJECT\s*(.*?)(?:CLUBS AND CHAPTERS|CERTIFICATES|EDUCATION|$)/is);
     if (aravindProjectMatch && aravindProjectMatch[1]) {
-        tempExperience.push(...parseBulletPoints(aravindProjectMatch[1]));
+        tempExperience.push(...parseSectionEntries(aravindProjectMatch[1]));
     } else {
         // General parsing for WORK EXPERIENCE
         const workExperienceSectionContent = extractContentBetween(resumeContent, "WORK EXPERIENCE", allKnownHeaders.filter(h => h !== "WORK EXPERIENCE"));
         if (workExperienceSectionContent) {
-            tempExperience.push(...parseBulletPoints(workExperienceSectionContent));
+            tempExperience.push(...parseSectionEntries(workExperienceSectionContent));
         }
 
         // General parsing for PROJECTS (if not handled by Aravind's specific case)
         const projectsSectionContent = extractContentBetween(resumeContent, "PROJECTS", allKnownHeaders.filter(h => h !== "PROJECTS"));
         if (projectsSectionContent) {
-            tempExperience.push(...parseBulletPoints(projectsSectionContent));
+            tempExperience.push(...parseSectionEntries(projectsSectionContent));
         }
     }
     
+    // Also add certifications as experience entries if they are substantial
+    const certificationsContent = extractContentBetween(resumeContent, "CERTIFICATIONS", allKnownHeaders.filter(h => h !== "CERTIFICATIONS"));
+    if (certificationsContent) {
+        tempExperience.push(...parseSectionEntries(certificationsContent));
+    }
+
     experience = tempExperience;
     if (experience.length === 0) experience.push("No specific experience identified");
 
