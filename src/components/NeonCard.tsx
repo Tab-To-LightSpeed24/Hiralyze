@@ -15,9 +15,9 @@ const NeonCard = React.forwardRef<HTMLDivElement, NeonCardProps>(
           "relative bg-card text-card-foreground border border-primary/30 rounded-lg p-6",
           "shadow-lg shadow-primary/20",
           "overflow-hidden",
-          "before:absolute before:inset-0 before:bg-gradient-to-br before:from-primary/10 before:to-transparent before:opacity-0 before:transition-opacity before:duration-300",
+          "before:absolute before:inset-0 before:bg-gradient-to-br before:from-primary/10 before:to-transparent before:opacity-0 before:transition-opacity before:duration-300 before:pointer-events-none",
           "hover:before:opacity-100",
-          "hover:shadow-primary/40 hover:border-primary transition-all duration-300 ease-in-out",
+          "hover:shadow-primary/40 hover:border-primary transition-all duration-300",
           className
         )}
         initial={{ opacity: 0, y: 20 }}
