@@ -29,27 +29,26 @@ const Login: React.FC = () => {
             providers={[]} // No third-party providers by default
             appearance={{
               theme: ThemeSupa,
-              // Temporarily removed custom variables to diagnose interactivity issue
-              // variables: {
-              //   default: {
-              //     colors: {
-              //       brand: 'hsl(var(--primary))', // Neon green for brand color
-              //       brandAccent: 'hsl(var(--primary-foreground))', // Dark text on neon
-              //       defaultButtonBackground: 'hsl(var(--secondary)/30%)', // Darker button background
-              //       defaultButtonBackgroundHover: 'hsl(var(--primary)/10%)', // Subtle neon hover
-              //       defaultButtonBorder: 'hsl(var(--primary)/50%)', // Neon border
-              //       inputBackground: 'hsl(var(--secondary)/30%)',
-              //       inputBorder: 'hsl(var(--primary)/50%)',
-              //       inputFocusBorder: 'hsl(var(--primary))',
-              //       inputText: 'hsl(var(--foreground))',
-              //       inputPlaceholder: 'hsl(var(--muted-foreground))',
-              //       messageText: 'hsl(var(--foreground))',
-              //       messageBackground: 'hsl(var(--secondary)/20%)',
-              //       anchorTextColor: 'hsl(var(--primary))',
-              //       anchorTextHoverColor: 'hsl(var(--primary)/80%)',
-              //     },
-              //   },
-              // },
+              variables: {
+                default: {
+                  colors: {
+                    brand: 'hsl(var(--primary))', // Neon green for brand color
+                    brandAccent: 'hsl(var(--primary-foreground))', // Dark text on neon
+                    defaultButtonBackground: 'hsl(var(--secondary)/30%)', // Darker button background
+                    defaultButtonBackgroundHover: 'hsl(var(--primary)/10%)', // Subtle neon hover
+                    defaultButtonBorder: 'hsl(var(--primary)/50%)', // Neon border
+                    inputBackground: 'hsl(var(--secondary)/30%)',
+                    inputBorder: 'hsl(var(--primary)/50%)',
+                    inputFocusBorder: 'hsl(var(--primary))',
+                    inputText: 'hsl(var(--foreground))',
+                    inputPlaceholder: 'hsl(var(--muted-foreground))',
+                    messageText: 'hsl(var(--foreground))',
+                    messageBackground: 'hsl(var(--secondary)/20%)',
+                    anchorTextColor: 'hsl(var(--primary))',
+                    anchorTextHoverColor: 'hsl(var(--primary)/80%)',
+                  },
+                },
+              },
             }}
             theme="dark" // Explicitly set dark theme for Auth UI
             redirectTo={window.location.origin} // Redirect to home after auth
