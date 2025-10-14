@@ -417,7 +417,7 @@ const Index = () => {
       return endIndex === -1 ? contentAfterStart.trim() : contentAfterStart.substring(0, endIndex).trim();
     };
 
-    const allKnownHeaders = ["EDUCATION", "WORK EXPERIENCE", "EXPERIENCE", "PROJECTS", "SKILLS", "TECHNICAL SKILLS", "CERTIFICATIONS", "PROFILE", "CLUBS AND CHAPTERS"];
+    const allKnownHeaders = ["EDUCATION", "WORK EXPERIENCE", "EXPERIENCE", "PROJECTS", "PROJECT", "SKILLS", "TECHNICAL SKILLS", "CERTIFICATIONS", "PROFILE", "CLUBS AND CHAPTERS"];
     const parseEntries = (text: string): string[] => text.split('\n').map(line => line.trim()).filter(line => line.length > 0 && !/^\s*•\s*$/.test(line));
 
     // --- Data Extraction with Fallbacks ---
@@ -432,7 +432,7 @@ const Index = () => {
     }
     // Fallback for unconventional layouts
     if (education.length === 0) {
-        const eduBlockMatch = resumeContent.match(/(Vellore Institute of Technology.*?Percentage : \d+\.\d*%)/is) || resumeContent.match(/(B\.?Tech|M\.?Tech|B\.?E|Computer Science|Electronics and Communication).*?CGPA[-:]?\s*(\d+\.?\d*)/is);
+        const eduBlockMatch = resumeContent.match(/(Vellore Institute of Technology[\s\S]*?CGPA[-:]?\s*\d+\.?\d*|B\.?Tech[\s\S]*?CGPA[-:]?\s*\d+\.?\d*)/is);
         if (eduBlockMatch && eduBlockMatch[0]) {
             education = parseEntries(eduBlockMatch[0]);
             const cgpaMatch = eduBlockMatch[0].match(/CGPA[-:]?\s*(\d+\.?\d*)/i);
@@ -443,20 +443,26 @@ const Index = () => {
 
     // 2. Skills
     let identifiedSkills = new Set<string>();
-    const skillsSectionContent = extractContentBetween(resumeContent, "SKILLS", allKnownHeaders.filter(h => h !== "SKILLS"));
-    const technicalSkillsSectionContent = extractContentBetween(resumeContent, "TECHNICAL SKILLS", allKnownHeaders.filter(h => h !== "TECHNICAL SKILLS"));
-    const parseSkillsBlock = (blockContent: string) => {
-        if (!blockContent) return;
-        blockContent.split(/•|\n/).forEach(line => {
+    const skillsSectionContent = extractContentBetween(resumeContent, "SKILLS", allKnownHeaders.filter(h => h !== "SKILLS")) || extractContentBetween(resumeContent, "TECHNICAL SKILLS", allKnownHeaders.filter(h => h !== "TECHNICAL SKILLS"));
+    if (skillsSectionContent) {
+        skillsSectionContent.split(/•|\n/).forEach(line => {
             const parts = line.split(':');
             const skillsText = (parts.length > 1 ? parts[1] : parts[0]);
             skillsText.split(',').map(s => s.trim()).filter(Boolean).forEach(skill => identifiedSkills.add(skill));
         });
-    };
-    parseSkillsBlock(skillsSectionContent);
-    parseSkillsBlock(technicalSkillsSectionContent);
-    
+    }
     // Fallback for skills listed in prose or unconventional sections
+    if (identifiedSkills.size === 0) {
+        const profileBlock = extractContentBetween(resumeContent, "PROFILE", ["EDUCATION"]);
+        if (profileBlock) {
+            profileBlock.split('\n').forEach(line => {
+                if (line.toLowerCase().includes('skills -')) {
+                    line.split('-')[1].split(',').map(s => s.trim()).filter(Boolean).forEach(skill => identifiedSkills.add(skill));
+                }
+            });
+        }
+    }
+    // Deepest fallback: scan entire document for any known keyword
     if (identifiedSkills.size === 0) {
         const allKeywords = new Set(Object.values(ROLE_KEYWORDS).flat());
         allKeywords.forEach(keyword => {
@@ -469,22 +475,12 @@ const Index = () => {
     skills = Array.from(identifiedSkills);
     if (skills.length === 0) skills.push("No details found for Skills");
 
-    // 3. Experience
+    // 3. Experience & Projects
     const workExperienceContent = extractContentBetween(resumeContent, "WORK EXPERIENCE", allKnownHeaders.filter(h => h !== "WORK EXPERIENCE"));
-    const projectsContent = extractContentBetween(resumeContent, "PROJECTS", allKnownHeaders.filter(h => h !== "PROJECTS"));
+    const projectsContent = extractContentBetween(resumeContent, "PROJECTS", allKnownHeaders.filter(h => h !== "PROJECTS")) || extractContentBetween(resumeContent, "PROJECT", allKnownHeaders.filter(h => h !== "PROJECT"));
     if (workExperienceContent) experience.push(...parseEntries(workExperienceContent));
     if (projectsContent) experience.push(...parseEntries(projectsContent));
     
-    // Fallback for projects listed after other sections (like in Aravind's resume)
-    if (experience.length === 0) {
-        const certsContent = extractContentBetween(resumeContent, "CERTIFICATES", [/$/]);
-        if (certsContent) {
-            const projectStartIndex = certsContent.search(/Pollin AI/i); // Known project title
-            if (projectStartIndex !== -1) {
-                experience.push(...parseEntries(certsContent.substring(projectStartIndex)));
-            }
-        }
-    }
     if (experience.length === 0) experience.push("No details found for Experience/Projects");
 
     // --- JD Parsing and Matching ---
