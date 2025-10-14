@@ -1,10 +1,10 @@
 import React, { useEffect } from 'react';
-import { Auth } from '@supabase/auth-ui-react';
-import { ThemeSupa } from '@supabase/auth-ui-shared';
-import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/components/SessionContextProvider';
 import { motion } from 'framer-motion';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import LoginForm from '@/components/LoginForm';
+import SignUpForm from '@/components/SignUpForm';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -19,13 +19,13 @@ const Login: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <motion.div 
-        className="flex w-full max-w-4xl h-[600px] rounded-lg shadow-2xl overflow-hidden bg-background border border-primary/20"
+        className="flex w-full max-w-4xl h-auto min-h-[600px] md:h-[600px] rounded-lg shadow-2xl overflow-hidden bg-background border border-primary/20 flex-col md:flex-row"
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5 }}
       >
         {/* Left Panel */}
-        <div className="hidden md:flex flex-col justify-center w-1/2 p-12 text-foreground bg-background border-r border-primary/30 relative overflow-hidden">
+        <div className="hidden md:flex flex-col justify-center w-full md:w-1/2 p-12 text-foreground bg-background border-r border-primary/30 relative overflow-hidden">
           <div className="absolute -top-10 -left-10 w-48 h-48 bg-primary/10 rounded-full shadow-neon-glow animate-pulse"></div>
           <div className="absolute -bottom-16 -right-10 w-40 h-40 bg-primary/10 rounded-lg transform rotate-45 shadow-neon-glow animate-pulse animation-delay-300"></div>
           <motion.div 
@@ -43,16 +43,18 @@ const Login: React.FC = () => {
 
         {/* Right Panel */}
         <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-center">
-          <h2 className="text-2xl font-bold text-primary text-neon-glow mb-6 text-center">USER LOGIN</h2>
-          <Auth
-            supabaseClient={supabase}
-            providers={[]}
-            appearance={{
-              theme: ThemeSupa,
-            }}
-            theme="dark"
-            redirectTo={window.location.origin}
-          />
+          <Tabs defaultValue="login" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 bg-secondary/30 border border-primary/50">
+              <TabsTrigger value="login" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-neon-glow">Login</TabsTrigger>
+              <TabsTrigger value="signup" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-neon-glow">Sign Up</TabsTrigger>
+            </TabsList>
+            <TabsContent value="login">
+              <LoginForm />
+            </TabsContent>
+            <TabsContent value="signup">
+              <SignUpForm />
+            </TabsContent>
+          </Tabs>
         </div>
       </motion.div>
     </div>
