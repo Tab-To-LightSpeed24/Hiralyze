@@ -401,7 +401,7 @@ const Index = () => {
 
     // Helper to extract content between two markers, now more robust
     const extractContentBetween = (content: string, startMarker: string, endMarkers: string[]): string => {
-      const startRegex = new RegExp(`\\b${startMarker}\\b`, 'i');
+      const startRegex = new RegExp(`(?:^|\\n)${startMarker.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}(?:\\n|\\s)`, 'i');
       const match = content.match(startRegex);
       if (!match || typeof match.index === 'undefined') return "";
       
@@ -410,7 +410,7 @@ const Index = () => {
       
       let endIndex = contentAfterStart.length;
       endMarkers.forEach(marker => {
-          const endRegex = new RegExp(`\\b${marker}\\b`, 'i');
+          const endRegex = new RegExp(`(?:^|\\n)${marker.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}(?:\\n|\\s)`, 'i');
           const endMatch = contentAfterStart.match(endRegex);
           if (endMatch && typeof endMatch.index !== 'undefined' && endMatch.index < endIndex) {
               endIndex = endMatch.index;
@@ -421,7 +421,7 @@ const Index = () => {
     };
 
     const allKnownHeaders = ["EDUCATION", "WORK EXPERIENCE", "EXPERIENCE", "PROJECTS", "PROJECT", "SKILLS", "TECHNICAL SKILLS", "CERTIFICATIONS", "PROFILE", "CLUBS AND CHAPTERS"];
-    const parseEntries = (text: string): string[] => text.split('\n').map(line => line.trim()).filter(line => line.length > 0 && !/^\s*•\s*$/.test(line));
+    const parseEntries = (text: string): string[] => text.split('\n').map(line => line.trim()).filter(line => line.length > 1 && line.split(' ').length > 1);
 
     // --- Data Extraction with Fallbacks ---
 
@@ -430,14 +430,14 @@ const Index = () => {
     let educationSectionContent = extractContentBetween(resumeContent, "EDUCATION", allKnownHeaders.filter(h => h !== "EDUCATION"));
     if (educationSectionContent) {
         education = parseEntries(educationSectionContent);
-        const cgpaMatch = educationSectionContent.match(/CGPA[-:]?\s*(\d+\.?\d*)/i);
+        const cgpaMatch = educationSectionContent.match(/CGPA[-:\s/]*(\d+\.?\d*)/i);
         if (cgpaMatch) resumeUGCGPA = parseFloat(cgpaMatch[1]);
     }
     if (education.length === 0) {
-        const eduBlockMatch = resumeContent.match(/(Vellore Institute of Technology[\s\S]*?CGPA[-:]?\s*\d+\.?\d*|B\.?Tech[\s\S]*?CGPA[-:]?\s*\d+\.?\d*)/is);
+        const eduBlockMatch = resumeContent.match(/(Vellore Institute of Technology[\s\S]*?CGPA[-:\s/]*\d+\.?\d*|B\.?Tech[\s\S]*?CGPA[-:\s/]*\d+\.?\d*)/is);
         if (eduBlockMatch && eduBlockMatch[0]) {
             education = parseEntries(eduBlockMatch[0]);
-            const cgpaMatch = eduBlockMatch[0].match(/CGPA[-:]?\s*(\d+\.?\d*)/i);
+            const cgpaMatch = eduBlockMatch[0].match(/CGPA[-:\s/]*(\d+\.?\d*)/i);
             if (cgpaMatch) resumeUGCGPA = parseFloat(cgpaMatch[1]);
         }
     }
@@ -445,40 +445,44 @@ const Index = () => {
 
     // 2. Skills
     let identifiedSkills = new Set<string>();
-    const skillsContent = extractContentBetween(resumeContent, "SKILLS", allKnownHeaders.filter(h => h !== "SKILLS")) || extractContentBetween(resumeContent, "TECHNICAL SKILLS", allKnownHeaders.filter(h => h !== "TECHNICAL SKILLS")) || extractContentBetween(resumeContent, "PROFILE", ["EDUCATION"]);
+    const skillsContent = extractContentBetween(resumeContent, "SKILLS", allKnownHeaders.filter(h => h !== "SKILLS")) || extractContentBetween(resumeContent, "TECHNICAL SKILLS", allKnownHeaders.filter(h => h !== "TECHNICAL SKILLS"));
     if (skillsContent) {
-        const parts = skillsContent.split(/\.|\n/);
-        parts.forEach(part => {
-            const skillListStr = part.replace(/^[\w\s]+(?: - |:)\s*/, '').replace(/^•\s*/, '');
-            const potentialSkills = skillListStr.split(/,|\band\b/);
-            potentialSkills.forEach(skill => {
-                const cleaned = skill.trim().replace(/\(.*\)/, '').trim();
-                if (cleaned) identifiedSkills.add(cleaned);
-            });
+        skillsContent.split('\n').forEach(line => {
+            const cleanedLine = line.replace(/•/g, '').trim();
+            const parts = cleanedLine.split(':');
+            const skillsString = (parts.length > 1 ? parts[1] : parts[0]).trim();
+            skillsString.split(/,/).map(s => s.trim().replace(/\.$/, '')).filter(Boolean).forEach(skill => identifiedSkills.add(skill));
         });
+    }
+    if (identifiedSkills.size === 0) {
+        const profileContent = extractContentBetween(resumeContent, "PROFILE", ["EDUCATION", "SKILLS"]);
+        if (profileContent) {
+            profileContent.split('.').forEach(sentence => {
+                if (sentence.toLowerCase().includes('skills -')) {
+                    const skillsPart = sentence.substring(sentence.toLowerCase().indexOf('skills -') + 8);
+                    skillsPart.split(',').map(s => s.trim()).filter(Boolean).forEach(skill => identifiedSkills.add(skill));
+                }
+            });
+        }
     }
     if (identifiedSkills.size === 0) {
         const allKeywords = new Set(Object.values(ROLE_KEYWORDS).flat());
         allKeywords.forEach(keyword => {
             const regex = new RegExp(`\\b${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
-            if (regex.test(resumeContent)) {
-                identifiedSkills.add(keyword);
-            }
+            if (regex.test(resumeContent)) identifiedSkills.add(keyword);
         });
     }
     skills = Array.from(identifiedSkills);
     if (skills.length === 0) skills.push("No details found for Skills");
 
     // 3. Experience & Projects
-    const workExperienceContent = extractContentBetween(resumeContent, "WORK EXPERIENCE", allKnownHeaders.filter(h => h !== "WORK EXPERIENCE"));
-    const projectsContent = extractContentBetween(resumeContent, "PROJECTS", allKnownHeaders.filter(h => h !== "PROJECTS")) || extractContentBetween(resumeContent, "PROJECT", allKnownHeaders.filter(h => h !== "PROJECT"));
+    const workExperienceContent = extractContentBetween(resumeContent, "WORK EXPERIENCE", ["PROJECTS", "CERTIFICATIONS", "EDUCATION"]);
+    const projectsContent = extractContentBetween(resumeContent, "PROJECTS", ["CERTIFICATIONS", "EDUCATION", "SKILLS"]);
     if (workExperienceContent) experience.push(...parseEntries(workExperienceContent));
     if (projectsContent) experience.push(...parseEntries(projectsContent));
     if (experience.length === 0) {
-        const projectBlocks = resumeContent.matchAll(/\n([A-Z][\w\s\(\)]+)\n(Developed|Applied|Using|Built|Engineered|Designed)[\s\S]*?(?=\n[A-Z][\w\s\(\)]+|$)/g);
-        for (const match of projectBlocks) {
-            experience.push(...parseEntries(match[0].trim()));
-        }
+        const projectBlockInAravind = extractContentBetween(resumeContent, "PROJECT", ["CLUBS AND CHAPTERS", "CERTIFICATES"]);
+        if (projectBlockInAravind) experience.push(...parseEntries(projectBlockInAravind));
     }
     if (experience.length === 0) experience.push("No details found for Experience/Projects");
 
@@ -680,36 +684,49 @@ June 2024 – August 2024
 CERTIFICATIONS
 • AWS Certified Cloud Practitioner
 • Google IT Support Professional Certificate`,
-      "ResumeSanjay_Final.pdf": `SANJAY KUMAR
-+91 9876543210 | sanjaykumar.s.2022@vitstudent.ac.in | Bangalore, India | LinkedIn
-EDUCATION
-Vellore Institute of Technology, Vellore
-B.Tech in Electronics and Communication Engineering | CGPA: 8.50/10
-Chennai Public School
-Grade 12: 95.0% | Grade 10: 93.0%
-SKILLS
-Programming Languages: C, C++, Python, MATLAB
-Embedded Systems: Microcontrollers (Arduino, ESP32), RTOS, IoT Protocols (MQTT, CoAP)
-Hardware: PCB Design, Circuit Analysis, Soldering
-Tools & Platforms: Git, GitHub, VS Code, Proteus, Simulink
-PROJECTS
-Smart Home Automation System (IoT)
-• Designed and implemented an IoT-based smart home system using ESP32 and MQTT protocol.
-• Developed firmware in C++ to control smart devices (lights, fans) via a mobile application.
-• Integrated with a cloud platform for remote monitoring and control.
-Automated Irrigation System
-• Built an automated irrigation system using Arduino, soil moisture sensors, and a water pump.
-• Programmed in C to monitor soil moisture levels and activate irrigation as needed.
-• Improved water efficiency by 30% compared to manual irrigation.
-WORK EXPERIENCE
-Embedded Systems Intern | ElectroTech Solutions | Bangalore, India
-July 2024 – September 2024
-• Assisted in the development of embedded firmware for industrial control systems.
-• Performed hardware testing and debugging of prototype boards.
-• Gained experience with real-time operating systems (RTOS) and communication protocols.
-CERTIFICATIONS
-• Certified Embedded Systems Professional
-• IoT Fundamentals - Cisco Networking Academy`,
+      "ResumeSanjay_Final.pdf": `Experience
+Novac Technology Solutions May 2025 – June 2025
+FullStack Development Intern Chennai, TamilNadu
+• Implemented microservices architecture using Node.js and Express, improving API response time by 25% and
+reducing server load by 30%.
+• Built and optimized React components for dynamic data rendering, streamlining API integration and improving user
+engagement by 20%.
+Team Ojas April 2023 – May 2024
+Core Autonomous Developer VIT Vellore
+• Improved core perception algorithms using YOLOv8, CNNs, and PyTorch, achieving over 95% object detection
+accuracy and reducing false positives by 30%.
+• Engineered path planning and navigation systems using A-star algorithm and Model Predictive Control (MPC),
+enhancing route efficiency by 40% and enabling localization precision within 10 cm using SLAM.
+Projects
+Personal Finance Dashboard | React.js, Node.js, Express, MongoDB, TailwindCSS
+• Built a secure family finance dashboard using MERN stack, with JWT authentication and role-based user access,
+allowing families to collaboratively manage income and expenses.
+• Designed a responsive, mobile-friendly UI using Tailwind CSS and React Hooks, integrating RESTful APIs to reduce
+manual tracking effort by 80% and improve data visibility and user retention.
+Online Payments Fraud Detection | Python, Scikit-learn, XGBoost, Flask
+• Engineered a real-time fraud detection system using Python, Pandas, Scikit-learn, and XGBoost, achieving 99.5%
+accuracy and minimizing false positives through model comparison, hyperparameter tuning, and evaluation on a
+balanced dataset.
+Cone detection for FS Driverless Competition | MATLAB, Simulink, YOLOv2, Unreal Engine
+• Developed a cone detection system using YOLOv2 and MATLAB Simulink, achieving over 92% detection accuracy
+on custom-labeled datasets.
+• Simulated autonomous skidpad navigation using Unreal Engine and Vehicle Dynamics Blockset in MATLAB R2023a,
+integrating real-time cone coordinates from the 3D Simulation Camera to validate vehicle control logic in
+photorealistic environments.
+Certifications
+Professional Machine Learning Engineer | Google
+• Designed and deployed scalable ML models, validating proficiency in production-ready systems with 90%+ model
+performance benchmarks on Google Cloud Platform (GCP).
+Formula Bharat’s DriverlessWorkshop | Formula Bharat
+Education
+Vellore Institute of Technology Expected May 2026
+B.Tech in Electronics and Communication Engineering (CGPA: 9.07 / 10.00) Vellore, TamilNadu
+Skills
+Languages: Python, C, C++, Java, JavaScript
+Technologies: HTML, CSS, React.js, Node.js, Express.js, SQL, JWT, TensorFlow, PyTorch, Bootstrap, Tailwind, Flask,
+ASP.NET, Fast API, Restful API, Django, Flutter, Docker, AWS, MATLAB
+Concepts: Compiler, Operating System, Data Structures and Algorithms, Software design, Object Oriented Programming,
+Artificial Intelligence, Deep Learning, Big Data Analytics, Agile Methodology, Cloud Computing`,
       "Software Role Resume1.pdf": "Software Engineer with experience in Java and Spring. Education: B.Tech in CS, CGPA 8.0. Skills: Java, Spring, SQL, Git.",
       "Software Role Resume3.pdf": "Senior Software Developer with expertise in Python, Django, and AWS. 10 years of experience. Education: M.Tech in CS. Skills: Python, Django, AWS, Docker, Kubernetes.",
       "Embedded Role Resume2.pdf": "Embedded Systems Engineer specializing in C++ and RTOS. Worked on automotive projects. Education: B.E in ECE. Skills: C++, RTOS, CAN, I2C, SPI.",
