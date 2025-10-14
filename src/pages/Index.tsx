@@ -426,35 +426,17 @@ const Index = () => {
     let jdPrimaryRole: string | undefined;
     let jdPrimaryRoleKeywords: string[] = [];
 
-    // 1. Improved Role Inference: Check for keywords from role titles to be more flexible
+    // 1. Role Inference: Check for keywords from role titles to be more flexible
     for (const role in ROLE_KEYWORDS) {
-      const roleParts = role.toLowerCase().split(/\s*\/\s*|\s+and\s+/); // Split "Software Developer / Software Engineer" and "Clubs and Chapters"
-      if (roleParts.some(part => jobDescriptionLower.includes(part) && part.length > 3)) { // Check for parts of the role title
+      const roleParts = role.toLowerCase().split(/\s*\/\s*|\s+and\s+/); // Split "Software Developer / Software Engineer"
+      if (roleParts.some(part => jobDescriptionLower.includes(part) && part.length > 3)) {
         jdPrimaryRole = role;
         jdPrimaryRoleKeywords = ROLE_KEYWORDS[role].map(k => k.toLowerCase());
         break;
       }
     }
 
-    // 2. Fallback Keyword Extraction: If no primary role, scan JD for any known technical keywords
-    if (jdPrimaryRoleKeywords.length === 0) {
-        const allKeywords = Object.values(ROLE_KEYWORDS).flat().map(k => k.toLowerCase());
-        const uniqueKeywords = [...new Set(allKeywords)];
-        
-        const foundKeywords = uniqueKeywords.filter(keyword => {
-            // Use a regex to match whole words to avoid partial matches (e.g., 'c' in 'class')
-            const regex = new RegExp(`\\b${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
-            return regex.test(jobDescription);
-        });
-
-        if (foundKeywords.length > 0) {
-            jdPrimaryRoleKeywords = foundKeywords;
-            // We don't set jdPrimaryRole here, but we have keywords to match against.
-            jdPrimaryRole = "Generic Technical Role (Inferred from keywords)";
-        }
-    }
-
-    // --- Simulate JD Eligibility Criteria Parsing ---
+    // --- Simulate JD Eligibility Criteria & Explicit Keyword Parsing ---
     const jdCriteria = {
       min10thPercentage: parseFloat(jobDescription.match(/10th grade min (\d+\.?\d*)%/)?.at(1) || '0'),
       min12thPercentage: parseFloat(jobDescription.match(/12th grade min (\d+\.?\d*)%/)?.at(1) || '0'),
@@ -465,443 +447,134 @@ const Index = () => {
       zeroExperienceCandidatesOnly: jobDescriptionLower.includes("zero experience candidates only"),
       communicationSkillsRequired: jobDescriptionLower.includes("excellent written and verbal communication skills"),
       teamworkSkillsRequired: jobDescriptionLower.includes("ability to collaborate and work well in team environments"),
-      // Initialize with explicit keywords from JD, but these will be overridden if a primary role is found
-      requiredSkillsKeywords: (jobDescription.match(/(?:skills|requirements|proficient in):?\s*([\w\s,.-]+)/i)?.[1]?.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)) || [],
-      requiredExperienceKeywords: (jobDescription.match(/(?:experience|responsibilities):?\s*([\w\s,.-]+)/i)?.[1]?.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)) || [],
+      // Extract explicit keywords from JD
+      explicitKeywords: (jobDescription.match(/(?:skills|requirements|proficient in):?\s*([\s\S]+)/i)?.[1]?.split(/,|\n|•/).map(s => s.trim().toLowerCase()).filter(Boolean)) || [],
     };
 
-    // Helper to parse lines into distinct entries for education
-    const parseEducationEntries = (text: string): string[] => {
+    // Helper to parse lines into distinct entries
+    const parseEntries = (text: string): string[] => {
       return text.split('\n')
                  .map(line => line.trim())
-                 .filter(line => line.length > 0 && !/^\s*•\s*$/.test(line)); // Filter out empty lines and standalone bullets
+                 .filter(line => line.length > 0 && !/^\s*•\s*$/.test(line));
     };
 
     // --- Education Parsing ---
     let resume10thPercentage = 0;
     let resume12thPercentage = 0;
     let resumeUGCGPA = 0;
-    let extractedEducationDetails: Set<string> = new Set();
-
-    // Specific parsing for Aravind's education which is tightly coupled after SKILLS
-    if (resumeFileName === "Resume Aravind.pdf") {
-        const aravindEduMatch = resumeContent.match(/(Vellore Institute of Technology Vellore, Tamilnadu\s*B\.? Tech, Electronics and Communication Engineering.*?CGPA-?\s*(\d+\.?\d*).*?SBOA School & Junior College Chennai, Tamilnadu.*?All Indian Senior School Certificate Examination.*?Percentage :?\s*(\d+\.?\d*)%.*?SBOA School & Junior College Chennai, Tamilnadu.*?All Indian Secondary School Examination.*?Percentage :?\s*(\d+\.?\d*)%)/is);
-        if (aravindEduMatch) {
-            extractedEducationDetails.add(aravindEduMatch[1].trim());
-            resumeUGCGPA = parseFloat(aravindEduMatch[2]);
-            resume12thPercentage = parseFloat(aravindEduMatch[3]);
-            resume10thPercentage = parseFloat(aravindEduMatch[4]);
-        }
-    } else {
-        // General parsing for other resumes
-        const vitFullMatch = resumeContent.match(/(Vellore Institute of Technology.*?B\.?Tech.*?Computer Science and Engineering.*?CGPA[-:]?\s*(\d+\.?\d*))/i);
-        if (vitFullMatch) {
-            extractedEducationDetails.add(vitFullMatch[1].trim());
-            resumeUGCGPA = parseFloat(vitFullMatch[2]);
-        }
-
-        const sboa12FullMatch = resumeContent.match(/(Chennai Public School.*?Grade 12:?\s*(\d+\.?\d*)%)/i);
-        if (sboa12FullMatch) {
-            const percentage = sboa12FullMatch[2];
-            if (percentage) {
-                resume12thPercentage = parseFloat(percentage);
-                extractedEducationDetails.add(`Chennai Public School, Grade 12: ${resume12thPercentage}%`);
-            }
-        }
-
-        const sboa10FullMatch = resumeContent.match(/(Chennai Public School.*?Grade 10:?\s*(\d+\.?\d*)%)/i);
-        if (sboa10FullMatch) {
-            const percentage = sboa10FullMatch[2];
-            if (percentage) {
-                resume10thPercentage = parseFloat(percentage);
-                extractedEducationDetails.add(`Chennai Public School, Grade 10: ${resume10thPercentage}%`);
-            }
-        }
-
-        if (resumeUGCGPA === 0) {
-            const generalCgpaMatch = resumeContent.match(/CGPA[-:]?\s*(\d+\.?\d*)/i);
-            if (generalCgpaMatch) resumeUGCGPA = parseFloat(generalCgpaMatch[1]);
-        }
-
-        if (extractedEducationDetails.size === 0) {
-            const educationSectionContent = extractContentBetween(resumeContent, "EDUCATION", allKnownHeaders.filter(h => h !== "EDUCATION"));
-            if (educationSectionContent) {
-                parseEducationEntries(educationSectionContent).forEach(line => extractedEducationDetails.add(line));
-            }
-        }
+    const educationSectionContent = extractContentBetween(resumeContent, "EDUCATION", allKnownHeaders.filter(h => h !== "EDUCATION"));
+    if (educationSectionContent) {
+        education = parseEntries(educationSectionContent);
+        const cgpaMatch = educationSectionContent.match(/CGPA[-:]?\s*(\d+\.?\d*)/i);
+        if (cgpaMatch) resumeUGCGPA = parseFloat(cgpaMatch[1]);
+        const grade12Match = educationSectionContent.match(/Grade 12:?\s*(\d+\.?\d*)%/i);
+        if (grade12Match) resume12thPercentage = parseFloat(grade12Match[1]);
+        const grade10Match = educationSectionContent.match(/Grade 10:?\s*(\d+\.?\d*)%/i);
+        if (grade10Match) resume10thPercentage = parseFloat(grade10Match[1]);
     }
-
-    education = Array.from(extractedEducationDetails);
-    if (education.length === 0) education.push("No specific education identified");
-
+    if (education.length === 0) education.push("No details found for Education");
 
     // --- Skill Extraction ---
+    const skillsSectionContent = extractContentBetween(resumeContent, "SKILLS", allKnownHeaders.filter(h => h !== "SKILLS"));
+    const technicalSkillsSectionContent = extractContentBetween(resumeContent, "TECHNICAL SKILLS", allKnownHeaders.filter(h => h !== "TECHNICAL SKILLS"));
     let identifiedSkills = new Set<string>();
-    
-    // For Aravind's resume, PROFILE and SKILLS are merged and followed by education
-    if (resumeFileName === "Resume Aravind.pdf") {
-        const profileSkillsMatch = resumeContent.match(/PROFILESoftware skills - (.*?)\.Programming Skills - (.*?)\. Soft Skills - (.*?)\.Volunteer experience - (.*?)\.SKILLS/is);
-        if (profileSkillsMatch) {
-            const softwareSkills = profileSkillsMatch[1].split(',').map(s => s.trim()).filter(Boolean);
-            const programmingSkills = profileSkillsMatch[2].split(',').map(s => s.trim()).filter(Boolean);
-            const softSkills = profileSkillsMatch[3].split(',').map(s => s.trim()).filter(Boolean);
-            [...softwareSkills, ...programmingSkills, ...softSkills].forEach(skill => identifiedSkills.add(skill));
-        }
-        // Explicitly extract skills from the "SKILLS" section, ending before "Vellore Institute of Technology"
-        const skillsSectionContent = extractContentBetween(resumeContent, "SKILLS", [/Vellore Institute of Technology/i, ...allKnownHeaders.filter(h => h !== "SKILLS")]);
-        if (skillsSectionContent) {
-            skillsSectionContent.split(/•\s*|\n/).map(s => s.trim()).filter(Boolean).forEach(skill => identifiedSkills.add(skill));
-        }
-
-        // Extract specific keywords from CERTIFICATES section for Aravind
-        const certificationsContent = extractContentBetween(resumeContent, "CERTIFICATES", allKnownHeaders.filter(h => h !== "CERTIFICATES"));
-        if (certificationsContent) {
-            const certKeywords = certificationsContent.match(/(Python Bootcamp|Electronics Foundations|Project Management Foundations|Ethical Hacking: Vulnerability Analysis|Introduction to Artificial Intelligence|Yolo v8|CNN|LM386|RF amplifier|VCO|tuning circuit|Multisim|Matlab|adaptive filtering)/gi);
-            if (certKeywords) {
-                certKeywords.forEach(kw => identifiedSkills.add(kw));
-            }
-        }
-
-    } else {
-        // General parsing for other resumes
-        const skillsSectionContent = extractContentBetween(resumeContent, "SKILLS", allKnownHeaders.filter(h => h !== "SKILLS"));
-        const technicalSkillsSectionContent = extractContentBetween(resumeContent, "TECHNICAL SKILLS", allKnownHeaders.filter(h => h !== "TECHNICAL SKILLS"));
-        const profileSectionContent = extractContentBetween(resumeContent, "PROFILE", allKnownHeaders.filter(h => h !== "PROFILE"));
-        const certificationsSectionContent = extractContentBetween(resumeContent, "CERTIFICATIONS", allKnownHeaders.filter(h => h !== "CERTIFICATIONS"));
-
-        const parseSkillsBlock = (blockContent: string) => {
-            if (!blockContent) return;
-            const skillLines = blockContent.split(/•\s*|\n/).map(s => s.trim()).filter(Boolean);
-            skillLines.forEach(line => {
-                const parts = line.split(':');
-                if (parts.length > 1) {
-                    const categorySkills = parts[1].split(',').map(s => s.trim()).filter(Boolean);
-                    categorySkills.forEach(skill => identifiedSkills.add(skill));
-                } else {
-                    line.split(',').map(s => s.trim()).filter(Boolean).forEach(skill => identifiedSkills.add(skill));
-                }
-            });
-        };
-
-        parseSkillsBlock(skillsSectionContent);
-        parseSkillsBlock(technicalSkillsSectionContent);
-
-        const profileSkillsMatch = profileSectionContent.match(/Software skills - (.*?)\.Programming Skills - (.*?)\./i);
-        if (profileSkillsMatch) {
-            const softwareSkills = profileSkillsMatch[1].split(',').map(s => s.trim()).filter(Boolean);
-            const programmingSkills = profileSkillsMatch[2].split(',').map(s => s.trim()).filter(Boolean);
-            [...softwareSkills, ...programmingSkills].forEach(skill => identifiedSkills.add(skill));
-        }
-
-        if (certificationsSectionContent) {
-            const certKeywords = certificationsSectionContent.match(/(AWS Cloud Practitioner|IBM AI Engineering Professional|Data Analytics|Amazon Web Services|Artificial Intelligence|Machine Learning|Python|Semiconductor devices|Project Management|Ethical Hacking|Vulnerability Analysis|Yolo v8|CNN|LM386|RF amplifier|VCO|tuning circuit|Multisim|Matlab|adaptive filtering)/gi);
-            if (certKeywords) {
-                certKeywords.forEach(kw => identifiedSkills.add(kw));
-            }
-        }
-    }
-
+    const parseSkillsBlock = (blockContent: string) => {
+        if (!blockContent) return;
+        blockContent.split(/•|\n/).forEach(line => {
+            const parts = line.split(':');
+            const skillsText = (parts.length > 1 ? parts[1] : parts[0]);
+            skillsText.split(',').map(s => s.trim()).filter(Boolean).forEach(skill => identifiedSkills.add(skill));
+        });
+    };
+    parseSkillsBlock(skillsSectionContent);
+    parseSkillsBlock(technicalSkillsSectionContent);
     skills = Array.from(identifiedSkills);
-    if (skills.length === 0) skills.push("No specific skills identified");
+    if (skills.length === 0) skills.push("No details found for Skills");
 
     // --- Experience Parsing ---
-    const tempExperience: string[] = [];
+    const workExperienceContent = extractContentBetween(resumeContent, "WORK EXPERIENCE", allKnownHeaders.filter(h => h !== "WORK EXPERIENCE"));
+    const projectsContent = extractContentBetween(resumeContent, "PROJECTS", allKnownHeaders.filter(h => h !== "PROJECTS"));
+    if (workExperienceContent) experience.push(...parseEntries(workExperienceContent));
+    if (projectsContent) experience.push(...parseEntries(projectsContent));
+    if (experience.length === 0) experience.push("No details found for Experience/Projects");
 
-    const parseExperienceEntries = (text: string): string[] => {
-      const entries: string[] = [];
-      const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
-      let currentEntry: string[] = [];
-
-      for (const line of lines) {
-        // If it's a bullet point or a continuation of a previous line (e.g., starts with lowercase or not a clear heading)
-        // Also, if it's a line that doesn't start with a capital letter (and isn't a bullet), it's likely a continuation.
-        if (line.startsWith('•') || (currentEntry.length > 0 && !/^[A-Z0-9]/.test(line))) {
-          currentEntry.push(line);
-        } else {
-          // This is a new entry/heading
-          if (currentEntry.length > 0) {
-            entries.push(currentEntry.join('\n'));
-          }
-          currentEntry = [line];
-        }
-      }
-      if (currentEntry.length > 0) {
-        entries.push(currentEntry.join('\n'));
-      }
-      return entries;
-    };
-
-    // Specific handling for Aravind's embedded PROJECT section
-    const aravindProjectMatch = resumeContent.match(/PROJECT\s*(.*?)(?:CLUBS AND CHAPTERS|CERTIFICATES|EDUCATION|$)/is);
-    if (aravindProjectMatch && aravindProjectMatch[1]) {
-        tempExperience.push(...parseExperienceEntries(aravindProjectMatch[1]));
-    } else {
-        // General parsing for WORK EXPERIENCE
-        const workExperienceSectionContent = extractContentBetween(resumeContent, "WORK EXPERIENCE", allKnownHeaders.filter(h => h !== "WORK EXPERIENCE"));
-        if (workExperienceSectionContent) {
-            tempExperience.push(...parseExperienceEntries(workExperienceSectionContent));
-        }
-
-        // General parsing for PROJECTS (if not handled by Aravind's specific case)
-        const projectsSectionContent = extractContentBetween(resumeContent, "PROJECTS", allKnownHeaders.filter(h => h !== "PROJECTS"));
-        if (projectsSectionContent) {
-            tempExperience.push(...parseExperienceEntries(projectsSectionContent));
-        }
+    // --- COMBINED KEYWORD STRATEGY ---
+    const jdKeywordsToMatch = new Set<string>([...jdPrimaryRoleKeywords, ...jdCriteria.explicitKeywords]);
+    if (!jdPrimaryRole && jdKeywordsToMatch.size === 0) {
+        // Fallback: if no role and no explicit keywords, scan JD for any known tech keyword
+        const allKeywords = Object.values(ROLE_KEYWORDS).flat().map(k => k.toLowerCase());
+        allKeywords.forEach(keyword => {
+            if (new RegExp(`\\b${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(jobDescription)) {
+                jdKeywordsToMatch.add(keyword);
+            }
+        });
     }
-    
-    // Also add certifications as experience entries if they are substantial
-    const certificationsContent = extractContentBetween(resumeContent, "CERTIFICATIONS", allKnownHeaders.filter(h => h !== "CERTIFICATIONS"));
-    if (certificationsContent) {
-        tempExperience.push(...parseExperienceEntries(certificationsContent));
-    }
+    const finalJdKeywords = Array.from(jdKeywordsToMatch);
 
-    experience = tempExperience;
-    if (experience.length === 0) experience.push("No specific experience identified");
-
-
-    // --- New Strict Shortlisting Logic ---
+    // --- Shortlisting Logic ---
     let isShortlisted = true;
-    let missingKeywords: string[] = [];
     let matchedJdKeywordsCount = 0;
+    const candidateCapabilitiesLower = resumeContentLower; // Use the whole resume for keyword search
 
-    // Prepare candidate capabilities for matching
-    const candidateCapabilitiesLower = new Set<string>();
-    const addWords = (text: string) => {
-      text.split(/[\s,.;:()\[\]{}'"`-]+/).map(word => word.trim().toLowerCase()).filter(Boolean).forEach(w => candidateCapabilitiesLower.add(w));
-    };
-
-    skills.forEach(s => {
-      candidateCapabilitiesLower.add(s.toLowerCase()); // Add full skill phrase
-      addWords(s); // Add individual words from skill
-    });
-    experience.forEach(exp => {
-      candidateCapabilitiesLower.add(exp.toLowerCase()); // Add full experience phrase
-      addWords(exp); // Add individual words from experience
-    });
-    education.forEach(edu => {
-      candidateCapabilitiesLower.add(edu.toLowerCase()); // Add full education phrase
-      addWords(edu); // Add individual words from education
-    });
-    addWords(resumeContentLower); // Add individual words from raw resume content
-
-    let jdKeywordsToMatch: string[] = [];
-
-    if (jdPrimaryRoleKeywords.length > 0) {
-      // Flatten complex role keywords like "AWS (EC2, S3)" into "aws", "ec2", "s3"
-      jdPrimaryRoleKeywords.forEach(keywordPhrase => {
-        const mainKeywordMatch = keywordPhrase.match(/^([\w\s.-]+?)(?:\s*\((.*?)\))?$/i);
-        if (mainKeywordMatch) {
-          const mainKeyword = mainKeywordMatch[1].trim();
-          if (mainKeyword) jdKeywordsToMatch.push(mainKeyword.toLowerCase());
-          if (mainKeywordMatch[2]) {
-            mainKeywordMatch[2].split(',').map(s => s.trim()).filter(Boolean).forEach(subKeyword => {
-              jdKeywordsToMatch.push(subKeyword.toLowerCase());
-            });
-          }
-        } else {
-          jdKeywordsToMatch.push(keywordPhrase.toLowerCase());
+    if (finalJdKeywords.length > 0) {
+        finalJdKeywords.forEach(keyword => {
+            if (candidateCapabilitiesLower.includes(keyword)) {
+                matchedJdKeywordsCount++;
+            }
+        });
+        if (matchedJdKeywordsCount < 3) { // Minimum 3 keywords for shortlisting
+            isShortlisted = false;
+            justification = `Candidate is not shortlisted. The job requires at least 3 matching keywords, but only ${matchedJdKeywordsCount} were found.`;
         }
-      });
     } else {
-      // If still no keywords, use the old regex-based extraction as a last resort
-      jdKeywordsToMatch = [...jdCriteria.requiredSkillsKeywords, ...jdCriteria.requiredExperienceKeywords];
-    }
-
-    // Perform matching with flattened keywords
-    if (jdKeywordsToMatch.length > 0) {
-      for (const requiredKeyword of jdKeywordsToMatch) {
-        // Check if any of the candidate's capabilities *contain* the required keyword
-        if (Array.from(candidateCapabilitiesLower).some(cap => cap.includes(requiredKeyword))) {
-          matchedJdKeywordsCount++;
-        } else {
-          missingKeywords.push(requiredKeyword);
-        }
-      }
-
-      if (matchedJdKeywordsCount < 3) { // Minimum 3 keywords for shortlisting
         isShortlisted = false;
-      }
-    } else {
-      // If no primary role inferred, and no explicit keywords in JD, cannot shortlist based on keywords
-      isShortlisted = false;
-      justification = "Cannot shortlist: No primary role inferred from job description and no explicit skills/experience keywords provided in JD.";
+        justification = "Cannot shortlist: No relevant technical keywords could be identified from the job description.";
     }
-
 
     if (!isShortlisted) {
-      matchScore = 1;
-      if (!justification) { // Only set if not already set by the "no primary role" case
-        justification = `This candidate, ${candidateName}, received a score of ${matchScore}/10. Reasoning: Candidate is NOT shortlisted because the job description for '${jdPrimaryRole || "unspecified role"}' requires at least 3 critical keywords, but only ${matchedJdKeywordsCount} were found. Missing: ${missingKeywords.join(", ")}.`;
-      }
-      return {
-        id: `cand-${Date.now()}-${Math.random()}`,
-        name: candidateName,
-        email: `${candidateName.toLowerCase()}@example.com`,
-        skills: skills,
-        experience: experience,
-        education: education,
-        matchScore: matchScore,
-        justification: justification,
-        resumeFileName: resumeFileName,
-        suggestedRole: suggestedRole,
-      };
+        matchScore = 1;
+        return {
+            id: `cand-${Date.now()}-${Math.random()}`, name: candidateName, email: `${candidateName.toLowerCase()}@example.com`,
+            skills, experience, education, matchScore, justification, resumeFileName, suggestedRole,
+        };
     }
-
 
     // --- Scoring Logic (only if shortlisted) ---
     let baseScore = 5;
+    scoreReasoning.push(`${matchedJdKeywordsCount} keywords matched.`);
+    baseScore += Math.min(3, matchedJdKeywordsCount - 3); // Add points for keywords beyond the threshold
 
-    if (jdCriteria.requiresEngineeringDegree && !education.some(edu => edu.toLowerCase().includes("b.tech") || edu.toLowerCase().includes("computer science engineering") || edu.toLowerCase().includes("electronics and communication engineering"))) {
-      scoreReasoning.push("Missing required Engineering degree.");
-      baseScore -= 2;
-    } else if (jdCriteria.requiresEngineeringDegree) {
-      scoreReasoning.push("Engineering degree found.");
-      baseScore += 1;
+    if (jdCriteria.requiresEngineeringDegree && !education.some(e => e.toLowerCase().includes("b.tech") || e.toLowerCase().includes("engineering"))) {
+        scoreReasoning.push("Missing required Engineering degree."); baseScore -= 2;
     }
-
-    if (jdCriteria.min10thPercentage > 0 && resume10thPercentage < jdCriteria.min10thPercentage) {
-      scoreReasoning.push(`10th grade percentage (${resume10thPercentage}%) is below required ${jdCriteria.min10thPercentage}%.`);
-      baseScore -= 2;
-    } else if (jdCriteria.min10thPercentage > 0) {
-      scoreReasoning.push(`10th grade percentage (${resume10thPercentage}%) meets/exceeds required ${jdCriteria.min10thPercentage}%.`);
-      baseScore += 1;
-    }
-
-    if (jdCriteria.min12thPercentage > 0 && resume12thPercentage < jdCriteria.min12thPercentage) {
-      scoreReasoning.push(`12th grade percentage (${resume12thPercentage}%) is below required ${jdCriteria.min12thPercentage}%.`);
-      baseScore -= 2;
-    } else if (jdCriteria.min12thPercentage > 0) {
-      scoreReasoning.push(`12th grade percentage (${resume12thPercentage}%) meets/exceeds required ${jdCriteria.min12thPercentage}%.`);
-      baseScore += 1;
-    }
-
     if (jdCriteria.minUGCGPA > 0 && resumeUGCGPA < jdCriteria.minUGCGPA) {
-      scoreReasoning.push(`UG CGPA (${resumeUGCGPA}) is below required ${jdCriteria.minUGCGPA}.`);
-      baseScore -= 3;
-    } else if (jdCriteria.minUGCGPA > 0) {
-      scoreReasoning.push(`UG CGPA (${resumeUGCGPA}) meets/exceeds required ${jdCriteria.minUGCGPA}.`);
-      baseScore += 2;
+        scoreReasoning.push(`UG CGPA (${resumeUGCGPA}) is below required ${jdCriteria.minUGCGPA}.`); baseScore -= 3;
+    }
+    if (jdCriteria.zeroExperienceCandidatesOnly && experience.some(exp => !exp.toLowerCase().includes("project"))) {
+        scoreReasoning.push("Candidate has professional experience, but job requires zero experience."); baseScore -= 4;
     }
 
-    // 2. Experience Eligibility & Scoring
-    if (jdCriteria.zeroExperienceCandidatesOnly && experience.some(exp => !exp.toLowerCase().includes("project"))) { // Check for non-project experience
-      scoreReasoning.push("Candidate has professional experience, but job requires zero experience.");
-      baseScore -= 4;
-    } else if (jdCriteria.zeroExperienceCandidatesOnly) {
-      scoreReasoning.push("Candidate has no professional experience, meeting 'zero experience' criteria.");
-      baseScore += 1;
-    }
-
-    // Score for matching JD experience keywords (from projects for interns)
-    let matchedExperienceKeywordsCount = 0;
-    const jdExperienceKeywordsToUse = jdPrimaryRole ? jdKeywordsToMatch : jdCriteria.requiredExperienceKeywords; // Use flattened keywords if primary role exists
-
-    if (jdExperienceKeywordsToUse.length > 0 && (experience.length > 0)) {
-      jdExperienceKeywordsToUse.forEach(jdExp => {
-        if (experience.some(resExp => resExp.toLowerCase().includes(jdExp))) {
-          matchedExperienceKeywordsCount++;
-        }
-      });
-      if (matchedExperienceKeywordsCount > 0) {
-        baseScore += Math.min(2, matchedExperienceKeywordsCount);
-        scoreReasoning.push(`${matchedExperienceKeywordsCount} relevant experience/project keywords matched with JD requirements.`);
-      } else {
-        scoreReasoning.push(`No specific experience/project keywords from JD (${jdPrimaryRole ? 'inferred' : 'explicit'}) matched in resume.`);
-      }
-    } else if (experience.length > 0 && experience[0] !== "No specific experience identified") {
-        baseScore += 1;
-        scoreReasoning.push("Resume contains project details, but no specific experience keywords were provided in the JD or inferred from role.");
-    } else {
-        scoreReasoning.push("No specific experience or project details found in resume.");
-    }
-
-    // 3. Skills Matching & Scoring
-    let matchedSkillsCount = 0;
-    const jdSkillsKeywordsToUse = jdPrimaryRole ? jdKeywordsToMatch : jdCriteria.requiredSkillsKeywords; // Use flattened keywords if primary role exists
-
-    if (jdSkillsKeywordsToUse.length > 0 && skills.length > 0 && skills[0] !== "No specific skills identified") {
-      jdSkillsKeywordsToUse.forEach(jdSkill => {
-        if (skills.some(resSkill => resSkill.toLowerCase().includes(jdSkill))) {
-          matchedSkillsCount++;
-        }
-      });
-      if (matchedSkillsCount > 0) {
-        baseScore += Math.min(3, matchedSkillsCount);
-        scoreReasoning.push(`${matchedSkillsCount} relevant skills matched with JD requirements.`);
-      } else {
-        scoreReasoning.push(`No specific skills from JD (${jdPrimaryRole ? 'inferred' : 'explicit'}) matched in resume.`);
-      }
-    } else if (skills.length > 0 && skills[0] !== "No specific skills identified") {
-        baseScore += 1;
-        scoreReasoning.push("Resume contains specific skills, but no specific skills keywords were provided in the JD or inferred from role.");
-    } else {
-        scoreReasoning.push("No specific skills found in resume.");
-    }
-
-    // Check for .Net expertise
-    if (jdCriteria.dotNetExpertise && !skills.some(s => s.toLowerCase().includes(".net"))) {
-      scoreReasoning.push("Missing required .Net expertise.");
-      baseScore -= 2;
-    } else if (jdCriteria.dotNetExpertise) {
-      scoreReasoning.push(".Net expertise found.");
-      baseScore += 1;
-    }
-
-    // 4. Soft Skills (keyword check in overall resume content)
-    if (jdCriteria.communicationSkillsRequired && (resumeContentLower.includes("communication skills") || resumeContentLower.includes("written communication") || resumeContentLower.includes("verbal communication"))) {
-      scoreReasoning.push("Communication skills mentioned in resume.");
-      baseScore += 1;
-    } else if (jdCriteria.communicationSkillsRequired) {
-      scoreReasoning.push("Communication skills not explicitly mentioned.");
-    }
-
-    if (jdCriteria.teamworkSkillsRequired && (resumeContentLower.includes("teamwork") || resumeContentLower.includes("collaborate") || resumeContentLower.includes("team environments"))) {
-      scoreReasoning.push("Teamwork/collaboration skills mentioned in resume.");
-      baseScore += 1;
-    } else if (jdCriteria.teamworkSkillsRequired) {
-      scoreReasoning.push("Teamwork/collaboration skills not explicitly mentioned.");
-    }
-
-    // Final score capping
     matchScore = Math.min(10, Math.max(1, baseScore));
-
-    justification = `This candidate, ${candidateName}, received a score of ${matchScore}/10. Reasoning: ${scoreReasoning.join(" ")}.`;
+    justification = `This candidate received a score of ${matchScore}/10. Reasoning: ${scoreReasoning.join(" ")}.`;
     
-    // --- Determine suggested role based on comprehensive skills/experience ---
+    // --- Determine suggested role ---
     let bestRoleMatchCount = 0;
     let potentialSuggestedRole = "Entry-Level Candidate";
-
-    const candidateCapabilities = new Set<string>();
-    skills.forEach(s => candidateCapabilities.add(s.toLowerCase()));
-    experience.forEach(exp => exp.split(/\s*,\s*|\s+/).forEach(word => candidateCapabilities.add(word.toLowerCase())));
-
     for (const role in ROLE_KEYWORDS) {
-      let currentRoleMatchCount = 0;
-      ROLE_KEYWORDS[role].forEach(keyword => {
-        if (candidateCapabilities.has(keyword.toLowerCase())) {
-          currentRoleMatchCount++;
+        let currentRoleMatchCount = 0;
+        ROLE_KEYWORDS[role].forEach(keyword => {
+            if (candidateCapabilitiesLower.includes(keyword.toLowerCase())) currentRoleMatchCount++;
+        });
+        if (currentRoleMatchCount > bestRoleMatchCount) {
+            bestRoleMatchCount = currentRoleMatchCount;
+            potentialSuggestedRole = role;
         }
-      });
-
-      if (currentRoleMatchCount > bestRoleMatchCount) {
-        bestRoleMatchCount = currentRoleMatchCount;
-        potentialSuggestedRole = role;
-      }
     }
     suggestedRole = potentialSuggestedRole;
 
-
     return {
-      id: `cand-${Date.now()}-${Math.random()}`,
-      name: candidateName,
-      email: `${candidateName.toLowerCase()}@example.com`,
-      skills: skills,
-      experience: experience,
-      education: education,
-      matchScore: matchScore,
-      justification: justification,
-      resumeFileName: resumeFileName,
-      suggestedRole: suggestedRole,
+        id: `cand-${Date.now()}-${Math.random()}`, name: candidateName, email: `${candidateName.toLowerCase()}@example.com`,
+        skills, experience, education, matchScore, justification, resumeFileName, suggestedRole,
     };
   };
 
