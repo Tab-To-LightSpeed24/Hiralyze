@@ -422,6 +422,38 @@ const Index = () => {
 
     const allKnownHeaders = ["EDUCATION", "WORK EXPERIENCE", "EXPERIENCE", "PROJECTS", "SKILLS", "TECHNICAL SKILLS", "CERTIFICATIONS", "PROFILE", "CLUBS AND CHAPTERS"];
 
+    // --- Improved JD Parsing ---
+    let jdPrimaryRole: string | undefined;
+    let jdPrimaryRoleKeywords: string[] = [];
+
+    // 1. Improved Role Inference: Check for keywords from role titles to be more flexible
+    for (const role in ROLE_KEYWORDS) {
+      const roleParts = role.toLowerCase().split(/\s*\/\s*|\s+and\s+/); // Split "Software Developer / Software Engineer" and "Clubs and Chapters"
+      if (roleParts.some(part => jobDescriptionLower.includes(part) && part.length > 3)) { // Check for parts of the role title
+        jdPrimaryRole = role;
+        jdPrimaryRoleKeywords = ROLE_KEYWORDS[role].map(k => k.toLowerCase());
+        break;
+      }
+    }
+
+    // 2. Fallback Keyword Extraction: If no primary role, scan JD for any known technical keywords
+    if (jdPrimaryRoleKeywords.length === 0) {
+        const allKeywords = Object.values(ROLE_KEYWORDS).flat().map(k => k.toLowerCase());
+        const uniqueKeywords = [...new Set(allKeywords)];
+        
+        const foundKeywords = uniqueKeywords.filter(keyword => {
+            // Use a regex to match whole words to avoid partial matches (e.g., 'c' in 'class')
+            const regex = new RegExp(`\\b${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+            return regex.test(jobDescription);
+        });
+
+        if (foundKeywords.length > 0) {
+            jdPrimaryRoleKeywords = foundKeywords;
+            // We don't set jdPrimaryRole here, but we have keywords to match against.
+            jdPrimaryRole = "Generic Technical Role (Inferred from keywords)";
+        }
+    }
+
     // --- Simulate JD Eligibility Criteria Parsing ---
     const jdCriteria = {
       min10thPercentage: parseFloat(jobDescription.match(/10th grade min (\d+\.?\d*)%/)?.at(1) || '0'),
@@ -437,25 +469,6 @@ const Index = () => {
       requiredSkillsKeywords: (jobDescription.match(/(?:skills|requirements|proficient in):?\s*([\w\s,.-]+)/i)?.[1]?.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)) || [],
       requiredExperienceKeywords: (jobDescription.match(/(?:experience|responsibilities):?\s*([\w\s,.-]+)/i)?.[1]?.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)) || [],
     };
-
-    let jdPrimaryRole: string | undefined;
-    let jdPrimaryRoleKeywords: string[] = [];
-
-    // Try to infer the primary role from the job description
-    for (const role in ROLE_KEYWORDS) {
-      if (jobDescriptionLower.includes(role.toLowerCase())) {
-        jdPrimaryRole = role;
-        jdPrimaryRoleKeywords = ROLE_KEYWORDS[role].map(k => k.toLowerCase());
-        break;
-      }
-    }
-
-    // IMPORTANT: If a primary role is inferred, use its keywords for matching and scoring
-    // This overrides any explicit keywords found in the JD text if a role is clearly identified.
-    if (jdPrimaryRole) {
-      jdCriteria.requiredSkillsKeywords = jdPrimaryRoleKeywords;
-      jdCriteria.requiredExperienceKeywords = jdPrimaryRoleKeywords; // Assuming role keywords cover both skills and experience for simplicity
-    }
 
     // Helper to parse lines into distinct entries for education
     const parseEducationEntries = (text: string): string[] => {
@@ -673,7 +686,7 @@ const Index = () => {
 
     let jdKeywordsToMatch: string[] = [];
 
-    if (jdPrimaryRole && jdPrimaryRoleKeywords.length > 0) {
+    if (jdPrimaryRoleKeywords.length > 0) {
       // Flatten complex role keywords like "AWS (EC2, S3)" into "aws", "ec2", "s3"
       jdPrimaryRoleKeywords.forEach(keywordPhrase => {
         const mainKeywordMatch = keywordPhrase.match(/^([\w\s.-]+?)(?:\s*\((.*?)\))?$/i);
@@ -690,7 +703,7 @@ const Index = () => {
         }
       });
     } else {
-      // If no primary role, use explicit skills/experience from JD
+      // If still no keywords, use the old regex-based extraction as a last resort
       jdKeywordsToMatch = [...jdCriteria.requiredSkillsKeywords, ...jdCriteria.requiredExperienceKeywords];
     }
 
@@ -1033,7 +1046,9 @@ July 2024 – September 2024
 CERTIFICATIONS
 • Certified Embedded Systems Professional
 • IoT Fundamentals - Cisco Networking Academy`,
-      // Add other mock resume contents here for different test cases if needed
+      "Software Role Resume1.pdf": "Software Engineer with experience in Java and Spring. Education: B.Tech in CS, CGPA 8.0. Skills: Java, Spring, SQL, Git.",
+      "Software Role Resume3.pdf": "Senior Software Developer with expertise in Python, Django, and AWS. 10 years of experience. Education: M.Tech in CS. Skills: Python, Django, AWS, Docker, Kubernetes.",
+      "Embedded Role Resume2.pdf": "Embedded Systems Engineer specializing in C++ and RTOS. Worked on automotive projects. Education: B.E in ECE. Skills: C++, RTOS, CAN, I2C, SPI.",
     };
 
     setTimeout(() => {
