@@ -399,22 +399,25 @@ const Index = () => {
     const resumeContentLower = resumeContent.toLowerCase();
     const jobDescriptionLower = jobDescription.toLowerCase();
 
-    // Helper to extract content between two markers
-    const extractContentBetween = (content: string, startMarker: string, endMarkers: (string | RegExp)[]): string => {
-      const startRegex = new RegExp(`(?:^|\\n\\s*)${startMarker}\\s*`, 'i');
-      const startIndex = content.search(startRegex);
-      if (startIndex === -1) return "";
-      const contentAfterStart = content.substring(startIndex + (content.match(startRegex)?.[0].length || 0));
-      let endIndex = -1;
-      for (const marker of endMarkers) {
-        const currentEndIndex = typeof marker === 'string'
-          ? contentAfterStart.search(new RegExp(`(?:\\s+|\\n|^)${marker}`, 'i'))
-          : contentAfterStart.search(marker);
-        if (currentEndIndex !== -1 && (endIndex === -1 || currentEndIndex < endIndex)) {
-          endIndex = currentEndIndex;
-        }
-      }
-      return endIndex === -1 ? contentAfterStart.trim() : contentAfterStart.substring(0, endIndex).trim();
+    // Helper to extract content between two markers, now more robust
+    const extractContentBetween = (content: string, startMarker: string, endMarkers: string[]): string => {
+      const startRegex = new RegExp(`\\b${startMarker}\\b`, 'i');
+      const match = content.match(startRegex);
+      if (!match || typeof match.index === 'undefined') return "";
+      
+      const startIndex = match.index + match[0].length;
+      const contentAfterStart = content.substring(startIndex);
+      
+      let endIndex = contentAfterStart.length;
+      endMarkers.forEach(marker => {
+          const endRegex = new RegExp(`\\b${marker}\\b`, 'i');
+          const endMatch = contentAfterStart.match(endRegex);
+          if (endMatch && typeof endMatch.index !== 'undefined' && endMatch.index < endIndex) {
+              endIndex = endMatch.index;
+          }
+      });
+      
+      return contentAfterStart.substring(0, endIndex).trim();
     };
 
     const allKnownHeaders = ["EDUCATION", "WORK EXPERIENCE", "EXPERIENCE", "PROJECTS", "PROJECT", "SKILLS", "TECHNICAL SKILLS", "CERTIFICATIONS", "PROFILE", "CLUBS AND CHAPTERS"];
@@ -430,7 +433,6 @@ const Index = () => {
         const cgpaMatch = educationSectionContent.match(/CGPA[-:]?\s*(\d+\.?\d*)/i);
         if (cgpaMatch) resumeUGCGPA = parseFloat(cgpaMatch[1]);
     }
-    // Fallback for unconventional layouts
     if (education.length === 0) {
         const eduBlockMatch = resumeContent.match(/(Vellore Institute of Technology[\s\S]*?CGPA[-:]?\s*\d+\.?\d*|B\.?Tech[\s\S]*?CGPA[-:]?\s*\d+\.?\d*)/is);
         if (eduBlockMatch && eduBlockMatch[0]) {
@@ -443,26 +445,18 @@ const Index = () => {
 
     // 2. Skills
     let identifiedSkills = new Set<string>();
-    const skillsSectionContent = extractContentBetween(resumeContent, "SKILLS", allKnownHeaders.filter(h => h !== "SKILLS")) || extractContentBetween(resumeContent, "TECHNICAL SKILLS", allKnownHeaders.filter(h => h !== "TECHNICAL SKILLS"));
-    if (skillsSectionContent) {
-        skillsSectionContent.split(/•|\n/).forEach(line => {
-            const parts = line.split(':');
-            const skillsText = (parts.length > 1 ? parts[1] : parts[0]);
-            skillsText.split(',').map(s => s.trim()).filter(Boolean).forEach(skill => identifiedSkills.add(skill));
+    const skillsContent = extractContentBetween(resumeContent, "SKILLS", allKnownHeaders.filter(h => h !== "SKILLS")) || extractContentBetween(resumeContent, "TECHNICAL SKILLS", allKnownHeaders.filter(h => h !== "TECHNICAL SKILLS")) || extractContentBetween(resumeContent, "PROFILE", ["EDUCATION"]);
+    if (skillsContent) {
+        const parts = skillsContent.split(/\.|\n/);
+        parts.forEach(part => {
+            const skillListStr = part.replace(/^[\w\s]+(?: - |:)\s*/, '').replace(/^•\s*/, '');
+            const potentialSkills = skillListStr.split(/,|\band\b/);
+            potentialSkills.forEach(skill => {
+                const cleaned = skill.trim().replace(/\(.*\)/, '').trim();
+                if (cleaned) identifiedSkills.add(cleaned);
+            });
         });
     }
-    // Fallback for skills listed in prose or unconventional sections
-    if (identifiedSkills.size === 0) {
-        const profileBlock = extractContentBetween(resumeContent, "PROFILE", ["EDUCATION"]);
-        if (profileBlock) {
-            profileBlock.split('\n').forEach(line => {
-                if (line.toLowerCase().includes('skills -')) {
-                    line.split('-')[1].split(',').map(s => s.trim()).filter(Boolean).forEach(skill => identifiedSkills.add(skill));
-                }
-            });
-        }
-    }
-    // Deepest fallback: scan entire document for any known keyword
     if (identifiedSkills.size === 0) {
         const allKeywords = new Set(Object.values(ROLE_KEYWORDS).flat());
         allKeywords.forEach(keyword => {
@@ -480,7 +474,12 @@ const Index = () => {
     const projectsContent = extractContentBetween(resumeContent, "PROJECTS", allKnownHeaders.filter(h => h !== "PROJECTS")) || extractContentBetween(resumeContent, "PROJECT", allKnownHeaders.filter(h => h !== "PROJECT"));
     if (workExperienceContent) experience.push(...parseEntries(workExperienceContent));
     if (projectsContent) experience.push(...parseEntries(projectsContent));
-    
+    if (experience.length === 0) {
+        const projectBlocks = resumeContent.matchAll(/\n([A-Z][\w\s\(\)]+)\n(Developed|Applied|Using|Built|Engineered|Designed)[\s\S]*?(?=\n[A-Z][\w\s\(\)]+|$)/g);
+        for (const match of projectBlocks) {
+            experience.push(...parseEntries(match[0].trim()));
+        }
+    }
     if (experience.length === 0) experience.push("No details found for Experience/Projects");
 
     // --- JD Parsing and Matching ---
@@ -614,7 +613,10 @@ data from the Twelve Data API and an AI assistant powered by a natural language 
       "Resume Aravind.pdf": `ARAVIND SA
 | saaravind16@gmail.com | LinkedIn
 PROFILESoftware skills - Verilog HDL, MATLAB, and Simulation - Multisim.Programming Skills - Python, C, C++, HTML, CSS, Java, JavaScript, ReactJS. Soft Skills - Project Management, Team Work, Communication, Leadership.Volunteer experience - Technical and cultural fest organizing committee.SKILLS Vellore Institute of Technology Vellore, Tamilnadu
-B. Tech, Electronics and Communication Engineering February 2025-Present CGPA-8.00.SBOA School & Junior College Chennai, TamilnaduAll Indian Senior School Certificate Examination May - 2022Percentage : 85.0%SBOA School & Junior College Chennai, TamilnaduAll Indian Secondary School Examination May - 2020Percentage : 86.4%Dedicated third-year Electronics and Communication Engineering student with a stronginterest in core ECE technologies. Passionate about exploring digital marketing andcommitted to continuous learning and innovation in the tech industry.EDUCATIONPROJECTCLUBS AND CHAPTERS Senior Core Community Member in Tamil Literary Association (TLA) VIT and have organized and volunteered in many events.CERTIFICATESThe Complete Python Bootcamp From Zero to Hero in Python, Udemy.Electronics Foundations - Semiconductor devices, LinkedIn.Project Management Foundations, LinkedIn.Ethical Hacking: Vulnerability Analysis, LinkedIn. Introduction to Artificial Intelligence, LinkedIn.Pollin AIDeveloped an AI system to monitor pollinator activity (e.g., bees, butterflies) inagricultural environments.Applied object detection through the Yolo v8 algorithm and CNN.Using LM386 as a comparator circuit for detection and using an RF amplifier,VCO, and a tuning circuit for jamming purposes.Mobile jammer and detector device (Multisim) Noise canceling headphones (Matlab) Detection of noise generated using a sample input and removing any noiseabove voice frequency using adaptive filtering algorithms to provide noise-cancelled output.`,
+B. Tech, Electronics and Communication Engineering February 2025-Present CGPA-8.00.SBOA School & Junior College Chennai, TamilnaduAll Indian Senior School Certificate Examination May - 2022Percentage : 85.0%SBOA School & Junior College Chennai, TamilnaduAll Indian Secondary School Examination May - 2020Percentage : 86.4%Dedicated third-year Electronics and Communication Engineering student with a stronginterest in core ECE technologies. Passionate about exploring digital marketing andcommitted to continuous learning and innovation in the tech industry.EDUCATIONPROJECTCLUBS AND CHAPTERS Senior Core Community Member in Tamil Literary Association (TLA) VIT and have organized and volunteered in many events.CERTIFICATESThe Complete Python Bootcamp From Zero to Hero in Python, Udemy.Electronics Foundations - Semiconductor devices, LinkedIn.Project Management Foundations, LinkedIn.Ethical Hacking: Vulnerability Analysis, LinkedIn. Introduction to Artificial Intelligence, LinkedIn.
+Pollin AIDeveloped an AI system to monitor pollinator activity (e.g., bees, butterflies) inagricultural environments.Applied object detection through the Yolo v8 algorithm and CNN.
+Mobile jammer and detector device (Multisim)Using LM386 as a comparator circuit for detection and using an RF amplifier,VCO, and a tuning circuit for jamming purposes.
+Noise canceling headphones (Matlab)Detection of noise generated using a sample input and removing any noiseabove voice frequency using adaptive filtering algorithms to provide noise-cancelled output.`,
       "Vishakan_latest_August_resume.pdf": `SKILLS
 • Programming: Python, Java, SQL, R, Bash.
 • Cloud Computing: Amazon Web Services (AWS).
