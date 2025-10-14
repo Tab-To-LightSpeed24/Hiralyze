@@ -399,9 +399,9 @@ const Index = () => {
     ];
     const sectionMap: { header: string; index: number }[] = [];
     allKnownHeaders.forEach(header => {
-        const regex = new RegExp(`(?:^|\\n)${header.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}(?:\\n|\\s|:)`, 'i');
-        const match = resumeContent.match(regex);
-        if (match && typeof match.index !== 'undefined') {
+        const regex = new RegExp(`(?:^|\\n)${header.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}(?:\\n|\\s|:|$)`, 'ig');
+        let match;
+        while ((match = regex.exec(resumeContent)) != null) {
             sectionMap.push({ header, index: match.index });
         }
     });
@@ -416,7 +416,7 @@ const Index = () => {
     const getSectionContent = (header: string): string => {
         const section = sectionMap.find(s => s.header.toLowerCase() === header.toLowerCase());
         if (!section) return "";
-        const currentIndex = sectionMap.indexOf(section);
+        const currentIndex = sectionMap.findIndex(s => s.index === section.index);
         const nextSection = sectionMap[currentIndex + 1];
         const startIndex = section.index + section.header.length;
         const endIndex = nextSection ? nextSection.index : resumeContent.length;
@@ -432,14 +432,12 @@ const Index = () => {
         const cgpaMatch = educationContent.match(/CGPA[-:\s/]*(\d+\.?\d*)/i);
         if (cgpaMatch) resumeUGCGPA = parseFloat(cgpaMatch[1]);
     }
-    if (education.length === 0) education.push("No structured education section found.");
 
     // Experience & Projects
     const workExpContent = getSectionContent("WORK EXPERIENCE") || getSectionContent("EXPERIENCE");
     const projectsContent = getSectionContent("PROJECTS") || getSectionContent("PROJECT");
     if (workExpContent) experience.push(...parseEntries(workExpContent));
     if (projectsContent) experience.push(...parseEntries(projectsContent));
-    if (experience.length === 0) experience.push("No structured experience or projects section found.");
 
     // Skills
     const skillsContent = getSectionContent("SKILLS") || getSectionContent("TECHNICAL SKILLS");
@@ -464,7 +462,6 @@ const Index = () => {
 
     // --- Pass 4: Data Consolidation ---
     const finalSkills = Array.from(new Set([...explicitSkills, ...inferredSkills]));
-    if (finalSkills.length === 0) finalSkills.push("No skills extracted or inferred.");
 
     // --- JD Parsing and Matching ---
     let jdPrimaryRole: string | undefined;
