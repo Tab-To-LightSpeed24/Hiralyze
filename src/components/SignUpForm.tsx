@@ -4,6 +4,30 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NeonButton } from '@/components/NeonButton';
 import { showError, showSuccess } from '@/utils/toast';
+import { motion } from 'framer-motion';
+
+const formVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.15,
+      delayChildren: 0.2,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: {
+      ease: 'easeOut',
+      duration: 0.5,
+    },
+  },
+};
 
 const SignUpForm = () => {
   const [email, setEmail] = useState('');
@@ -31,8 +55,14 @@ const SignUpForm = () => {
   };
 
   return (
-    <form onSubmit={handleSignUp} className="space-y-6 pt-6">
-      <div className="space-y-2">
+    <motion.form 
+      onSubmit={handleSignUp} 
+      className="space-y-6 pt-6"
+      variants={formVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      <motion.div variants={itemVariants} className="space-y-2">
         <Label htmlFor="signup-email" className="text-primary text-neon-glow">Email Address</Label>
         <Input
           id="signup-email"
@@ -42,8 +72,8 @@ const SignUpForm = () => {
           onChange={(e) => setEmail(e.target.value)}
           required
         />
-      </div>
-      <div className="space-y-2">
+      </motion.div>
+      <motion.div variants={itemVariants} className="space-y-2">
         <Label htmlFor="signup-password" className="text-primary text-neon-glow">Create Password</Label>
         <Input
           id="signup-password"
@@ -53,8 +83,8 @@ const SignUpForm = () => {
           onChange={(e) => setPassword(e.target.value)}
           required
         />
-      </div>
-      <div className="space-y-2">
+      </motion.div>
+      <motion.div variants={itemVariants} className="space-y-2">
         <Label htmlFor="signup-confirm-password" className="text-primary text-neon-glow">Confirm New Password</Label>
         <Input
           id="signup-confirm-password"
@@ -64,11 +94,13 @@ const SignUpForm = () => {
           onChange={(e) => setConfirmPassword(e.target.value)}
           required
         />
-      </div>
-      <NeonButton type="submit" className="w-full" disabled={loading}>
-        {loading ? 'Signing Up...' : 'Sign Up'}
-      </NeonButton>
-    </form>
+      </motion.div>
+      <motion.div variants={itemVariants}>
+        <NeonButton type="submit" className="w-full" disabled={loading}>
+          {loading ? 'Signing Up...' : 'Sign Up'}
+        </NeonButton>
+      </motion.div>
+    </motion.form>
   );
 };
 

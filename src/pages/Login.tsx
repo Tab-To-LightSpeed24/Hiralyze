@@ -26,8 +26,32 @@ const Login: React.FC = () => {
       >
         {/* Left Panel */}
         <div className="hidden md:flex flex-col justify-center w-full md:w-1/2 p-12 text-foreground bg-background border-r border-primary/30 relative overflow-hidden">
-          <div className="absolute -top-10 -left-10 w-48 h-48 bg-primary/10 rounded-full shadow-neon-glow animate-pulse"></div>
-          <div className="absolute -bottom-16 -right-10 w-40 h-40 bg-primary/10 rounded-lg transform rotate-45 shadow-neon-glow animate-pulse animation-delay-300"></div>
+          <motion.div 
+            className="absolute -top-10 -left-10 w-48 h-48 bg-primary/10 rounded-full shadow-neon-glow"
+            animate={{ 
+              y: [0, -15, 0],
+              rotate: [0, 10, 0],
+            }}
+            transition={{
+              duration: 8,
+              ease: "easeInOut",
+              repeat: Infinity,
+            }}
+          />
+          <motion.div 
+            className="absolute -bottom-16 -right-10 w-40 h-40 bg-primary/10 rounded-lg transform rotate-45 shadow-neon-glow"
+            animate={{ 
+              y: [0, 15, 0],
+              x: [0, -10, 0],
+              rotate: [45, 55, 45],
+            }}
+            transition={{
+              duration: 10,
+              ease: "easeInOut",
+              repeat: Infinity,
+              delay: 1,
+            }}
+          />
           <motion.div 
             className="relative z-10"
             initial={{ opacity: 0, x: -20 }}
