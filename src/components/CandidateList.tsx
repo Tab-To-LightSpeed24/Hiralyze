@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import { Candidate } from "@/types";
 import CandidateCard from "./CandidateCard";
+import CandidateDetailModal from "./CandidateDetailModal"; // Import the modal
 import { motion } from "framer-motion";
 
 interface CandidateListProps {
@@ -8,6 +9,8 @@ interface CandidateListProps {
 }
 
 const CandidateList: React.FC<CandidateListProps> = ({ candidates }) => {
+  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
+
   if (candidates.length === 0) {
     return (
       <motion.div
@@ -22,23 +25,32 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates }) => {
   }
 
   return (
-    <motion.div
-      initial="hidden"
-      animate="visible"
-      variants={{
-        visible: {
-          transition: {
-            staggerChildren: 0.1,
+    <>
+      <motion.div
+        initial="hidden"
+        animate="visible"
+        variants={{
+          visible: {
+            transition: {
+              staggerChildren: 0.1,
+            },
           },
-        },
-      }}
-      className="grid gap-6 md:grid-cols-2 lg:grid-cols-2" // Changed lg:grid-cols-3 to lg:grid-cols-2
-    >
-      {candidates.map((candidate, index) => (
-        <CandidateCard key={candidate.id} candidate={candidate} index={index} />
-      ))}
-    </motion.div>
+        }}
+        className="grid gap-6 md:grid-cols-2 lg:grid-cols-3" // Changed back to 3 columns for compact cards
+      >
+        {candidates.map((candidate, index) => (
+          <CandidateCard 
+            key={candidate.id} 
+            candidate={candidate} 
+            index={index} 
+            onClick={() => setSelectedCandidate(candidate)}
+          />
+        ))}
+      </motion.div>
+      <CandidateDetailModal 
+        isOpen={!!selectedCandidate}
+        onClose={() => setSelectedCandidate(null)}
+        candidate={selectedCandidate}
+      />
+    </>
   );
-};
-
-export default CandidateList;
