@@ -424,25 +424,27 @@ const Index = () => {
 
     // 1. Education
     let resumeUGCGPA = 0;
-    const educationSectionContent = extractContentBetween(resumeContent, "EDUCATION", allKnownHeaders.filter(h => h !== "EDUCATION"));
+    let educationSectionContent = extractContentBetween(resumeContent, "EDUCATION", allKnownHeaders.filter(h => h !== "EDUCATION"));
     if (educationSectionContent) {
         education = parseEntries(educationSectionContent);
         const cgpaMatch = educationSectionContent.match(/CGPA[-:]?\s*(\d+\.?\d*)/i);
         if (cgpaMatch) resumeUGCGPA = parseFloat(cgpaMatch[1]);
-    } else {
-        const eduMatch = resumeContent.match(/Education: (.*)/i);
-        if (eduMatch && eduMatch[1]) {
-            education = [eduMatch[1].trim()];
-            const cgpaMatch = eduMatch[1].match(/CGPA (\d+\.?\d*)/i);
+    }
+    // Fallback for unconventional layouts
+    if (education.length === 0) {
+        const eduBlockMatch = resumeContent.match(/(Vellore Institute of Technology.*?Percentage : \d+\.\d*%)/is) || resumeContent.match(/(B\.?Tech|M\.?Tech|B\.?E|Computer Science|Electronics and Communication).*?CGPA[-:]?\s*(\d+\.?\d*)/is);
+        if (eduBlockMatch && eduBlockMatch[0]) {
+            education = parseEntries(eduBlockMatch[0]);
+            const cgpaMatch = eduBlockMatch[0].match(/CGPA[-:]?\s*(\d+\.?\d*)/i);
             if (cgpaMatch) resumeUGCGPA = parseFloat(cgpaMatch[1]);
         }
     }
     if (education.length === 0) education.push("No details found for Education");
 
     // 2. Skills
+    let identifiedSkills = new Set<string>();
     const skillsSectionContent = extractContentBetween(resumeContent, "SKILLS", allKnownHeaders.filter(h => h !== "SKILLS"));
     const technicalSkillsSectionContent = extractContentBetween(resumeContent, "TECHNICAL SKILLS", allKnownHeaders.filter(h => h !== "TECHNICAL SKILLS"));
-    let identifiedSkills = new Set<string>();
     const parseSkillsBlock = (blockContent: string) => {
         if (!blockContent) return;
         blockContent.split(/•|\n/).forEach(line => {
@@ -453,24 +455,18 @@ const Index = () => {
     };
     parseSkillsBlock(skillsSectionContent);
     parseSkillsBlock(technicalSkillsSectionContent);
-    skills = Array.from(identifiedSkills);
-
-    if (skills.length === 0) {
-        const skillsMatch = resumeContent.match(/Skills: (.*)/i);
-        if (skillsMatch && skillsMatch[1]) {
-            skills = skillsMatch[1].split(/, | and /).map(s => s.trim());
-        } else {
-            const allKeywords = new Set(Object.values(ROLE_KEYWORDS).flat());
-            const foundSkills = new Set<string>();
-            allKeywords.forEach(keyword => {
-                const regex = new RegExp(`\\b${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
-                if (regex.test(resumeContent)) {
-                    foundSkills.add(keyword);
-                }
-            });
-            if (foundSkills.size > 0) skills = Array.from(foundSkills);
-        }
+    
+    // Fallback for skills listed in prose or unconventional sections
+    if (identifiedSkills.size === 0) {
+        const allKeywords = new Set(Object.values(ROLE_KEYWORDS).flat());
+        allKeywords.forEach(keyword => {
+            const regex = new RegExp(`\\b${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+            if (regex.test(resumeContent)) {
+                identifiedSkills.add(keyword);
+            }
+        });
     }
+    skills = Array.from(identifiedSkills);
     if (skills.length === 0) skills.push("No details found for Skills");
 
     // 3. Experience
@@ -479,9 +475,15 @@ const Index = () => {
     if (workExperienceContent) experience.push(...parseEntries(workExperienceContent));
     if (projectsContent) experience.push(...parseEntries(projectsContent));
     
+    // Fallback for projects listed after other sections (like in Aravind's resume)
     if (experience.length === 0) {
-        const expMatches = resumeContent.match(/(\d+ years of experience|experience in [\w\s,]+|specializing in [\w\s,]+|worked on [\w\s,]+)/ig);
-        if (expMatches) experience.push(...expMatches);
+        const certsContent = extractContentBetween(resumeContent, "CERTIFICATES", [/$/]);
+        if (certsContent) {
+            const projectStartIndex = certsContent.search(/Pollin AI/i); // Known project title
+            if (projectStartIndex !== -1) {
+                experience.push(...parseEntries(certsContent.substring(projectStartIndex)));
+            }
+        }
     }
     if (experience.length === 0) experience.push("No details found for Experience/Projects");
 
