@@ -511,6 +511,21 @@ const Index = () => {
     }
     const finalJdKeywords = Array.from(jdKeywordsToMatch);
 
+    // --- Suggested Role (Calculated for ALL candidates) ---
+    let bestRoleMatchCount = 0;
+    let potentialSuggestedRole = "General Candidate";
+    for (const role in ROLE_KEYWORDS) {
+        let currentRoleMatchCount = 0;
+        ROLE_KEYWORDS[role].forEach(keyword => {
+            if (resumeContentLower.includes(keyword.toLowerCase())) currentRoleMatchCount++;
+        });
+        if (currentRoleMatchCount > bestRoleMatchCount) {
+            bestRoleMatchCount = currentRoleMatchCount;
+            potentialSuggestedRole = role;
+        }
+    }
+    suggestedRole = potentialSuggestedRole;
+
     // --- Shortlisting Logic ---
     let isShortlisted = true;
     let matchedJdKeywordsCount = 0;
@@ -551,21 +566,6 @@ const Index = () => {
 
     matchScore = Math.min(10, Math.max(1, baseScore));
     justification = `This candidate received a score of ${matchScore}/10. Reasoning: ${scoreReasoning.join(" ")}.`;
-    
-    // --- Suggested Role ---
-    let bestRoleMatchCount = 0;
-    let potentialSuggestedRole = "Entry-Level Candidate";
-    for (const role in ROLE_KEYWORDS) {
-        let currentRoleMatchCount = 0;
-        ROLE_KEYWORDS[role].forEach(keyword => {
-            if (resumeContentLower.includes(keyword.toLowerCase())) currentRoleMatchCount++;
-        });
-        if (currentRoleMatchCount > bestRoleMatchCount) {
-            bestRoleMatchCount = currentRoleMatchCount;
-            potentialSuggestedRole = role;
-        }
-    }
-    suggestedRole = potentialSuggestedRole;
 
     return { id: `cand-${Date.now()}-${Math.random()}`, name: candidateName, email: `${candidateName.toLowerCase()}@example.com`, skills, experience, education, matchScore, justification, resumeFileName, suggestedRole };
   };
@@ -727,9 +727,82 @@ Technologies: HTML, CSS, React.js, Node.js, Express.js, SQL, JWT, TensorFlow, Py
 ASP.NET, Fast API, Restful API, Django, Flutter, Docker, AWS, MATLAB
 Concepts: Compiler, Operating System, Data Structures and Algorithms, Software design, Object Oriented Programming,
 Artificial Intelligence, Deep Learning, Big Data Analytics, Agile Methodology, Cloud Computing`,
-      "Software Role Resume1.pdf": "Software Engineer with experience in Java and Spring. Education: B.Tech in CS, CGPA 8.0. Skills: Java, Spring, SQL, Git.",
-      "Software Role Resume3.pdf": "Senior Software Developer with expertise in Python, Django, and AWS. 10 years of experience. Education: M.Tech in CS. Skills: Python, Django, AWS, Docker, Kubernetes.",
-      "Embedded Role Resume2.pdf": "Embedded Systems Engineer specializing in C++ and RTOS. Worked on automotive projects. Education: B.E in ECE. Skills: C++, RTOS, CAN, I2C, SPI.",
+      "Software Role Resume1.pdf": `
+SKILLS
+• Languages: Java, SQL
+• Frameworks: Spring Boot, Hibernate
+• Tools: Git, Maven, Docker
+EXPERIENCE
+Software Engineer at TechCorp
+• Developed and maintained backend services using Java and Spring Boot.
+• Wrote complex SQL queries for data retrieval and analysis.
+EDUCATION
+B.Tech in Computer Science | CGPA: 8.0`,
+      "Senior Software Role Resume.pdf": `
+SKILLS
+• Languages: Python, Go
+• Frameworks: Django, FastAPI
+• Cloud: AWS, GCP
+• Tools: Docker, Kubernetes, Terraform
+EXPERIENCE
+Senior Software Developer at Cloud Innovators
+• Led a team to build a scalable microservices architecture on AWS.
+• Designed and implemented CI/CD pipelines using Jenkins and Terraform.
+EDUCATION
+M.Tech in Computer Science`,
+      "Embedded Role Resume2.pdf": `
+SKILLS
+• Languages: C++, C, Embedded C
+• Microcontrollers: ARM, STM32, AVR
+• Protocols: I2C, SPI, UART, CAN
+• RTOS: FreeRTOS, Zephyr
+• Tools: JTAG, Oscilloscope, KiCad
+PROJECTS
+Automotive Control Unit
+• Developed firmware for an ECU using C++ and FreeRTOS.
+• Implemented CAN bus communication for vehicle diagnostics.
+EDUCATION
+B.E in Electronics and Communication Engineering`,
+      "IOT Role Resume3.pdf": `
+SKILLS
+• IoT Platforms: AWS IoT, Azure IoT Hub
+• Hardware: Raspberry Pi, Arduino, ESP32
+• Protocols: MQTT, CoAP, BLE, LoRaWAN
+• Programming: Python, C++, MicroPython
+• Cloud: AWS Lambda, S3
+PROJECTS
+Smart Home Automation System
+• Designed an IoT system using ESP32 and MQTT to control home appliances.
+• Developed a Python backend on AWS Lambda to process sensor data.
+EDUCATION
+B.Tech in Electrical Engineering | CGPA: 8.5`,
+      "ML Engineer Role Resume4.pdf": `
+SKILLS
+• Programming: Python
+• ML/DL Frameworks: PyTorch, TensorFlow, Scikit-learn, XGBoost
+• MLOps: Docker, Kubernetes, MLflow, Airflow
+• Cloud: AWS Sagemaker, Azure ML
+• APIs: FastAPI, Flask
+PROJECTS
+Real-time Fraud Detection API
+• Deployed a credit card fraud detection model using XGBoost.
+• Built a REST API with FastAPI for real-time inference.
+• Containerized the application with Docker for deployment.
+EDUCATION
+M.Tech in Artificial Intelligence | CGPA: 9.1`,
+      "VLSI Engineer Role Resume5.pdf": `
+SKILLS
+• HDL: Verilog, SystemVerilog, VHDL
+• Tools: Vivado, Quartus, Synopsys, Cadence
+• Concepts: RTL Design, FPGA, ASIC, UVM, STA
+• Scripting: Python, Perl, Tcl
+PROJECTS
+FPGA-based Image Processor
+• Designed and implemented an image processing pipeline on a Xilinx FPGA.
+• Wrote RTL code in Verilog and performed synthesis and timing analysis.
+• Created a UVM testbench for verification.
+EDUCATION
+B.Tech in Electronics and Communication Engineering | CGPA: 8.8`,
     };
 
     setTimeout(() => {
