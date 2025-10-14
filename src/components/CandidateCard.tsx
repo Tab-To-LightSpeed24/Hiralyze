@@ -48,14 +48,14 @@ const CandidateCard: React.FC<CandidateCardProps> = ({ candidate, index, onClick
         <div>
           <NeonCardHeader>
             <div className="flex justify-between items-start">
-              <NeonCardTitle className="flex-grow min-w-0 text-xl">
+              <NeonCardTitle className="flex-grow min-w-0 text-xl truncate">
                 {candidate.name}
               </NeonCardTitle>
               <Badge 
                 variant="outline" 
                 className={cn(
                   "text-lg px-3 py-1 border-primary text-primary bg-primary/10",
-                  "shadow-neon-glow-sm flex-shrink-0"
+                  "shadow-neon-glow-sm flex-shrink-0 ml-2" // Added margin-left
                 )}
               >
                 {candidate.matchScore}/10
