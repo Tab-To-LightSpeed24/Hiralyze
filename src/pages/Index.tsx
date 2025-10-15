@@ -417,88 +417,82 @@ const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescrip
   const resumeContentLower = resumeContent.toLowerCase();
   const jobDescriptionLower = jobDescription.toLowerCase();
 
-  // --- RE-ENGINEERED PARSING LOGIC ---
+  // --- RE-ENGINEERED PARSING LOGIC V3 ---
 
-  // 1. Define headers and a wide range of synonyms
-  const HEADER_SYNONYMS: { [key: string]: { canonical: string; synonyms: string[] } } = {
-    PROFILE: { canonical: "PROFILE", synonyms: ["profile", "summary", "objective", "about"] },
-    EDUCATION: { canonical: "EDUCATION", synonyms: ["education", "academic qualifications", "academics", "education history"] },
-    SKILLS: { canonical: "SKILLS", synonyms: ["skills", "technical skills", "core competencies", "technologies", "technical proficiency", "area of interest"] },
-    EXPERIENCE: { canonical: "EXPERIENCE", synonyms: ["experience", "work experience", "professional experience", "employment history", "internship"] },
-    PROJECTS: { canonical: "PROJECTS", synonyms: ["projects", "personal projects", "academic projects"] },
-    CERTIFICATIONS: { canonical: "CERTIFICATIONS", synonyms: ["certifications", "licenses & certifications", "courses"] },
-    AWARDS: { canonical: "AWARDS", synonyms: ["awards", "honors & awards", "achievements"] },
+  const HEADER_SYNONYMS = {
+      PROFILE: { canonical: "PROFILE", synonyms: ["profile", "summary", "objective", "about"] },
+      EDUCATION: { canonical: "EDUCATION", synonyms: ["education", "academic qualifications", "academics", "education history"] },
+      SKILLS: { canonical: "SKILLS", synonyms: ["skills", "technical skills", "core competencies", "technologies", "technical proficiency", "area of interest"] },
+      EXPERIENCE: { canonical: "EXPERIENCE", synonyms: ["experience", "work experience", "professional experience", "employment history", "internship"] },
+      PROJECTS: { canonical: "PROJECTS", synonyms: ["projects", "personal projects", "academic projects"] },
+      CERTIFICATIONS: { canonical: "CERTIFICATIONS", synonyms: ["certifications", "licenses & certifications", "courses"] },
+      AWARDS: { canonical: "AWARDS", synonyms: ["awards", "honors & awards", "achievements"] },
   };
   const allSynonyms = Object.values(HEADER_SYNONYMS).flatMap(h => h.synonyms);
 
-  // 2. Find all potential section headers and their locations in the text
-  const sectionBoundaries: { canonical: string; index: number; headerLength: number }[] = [];
-  Object.values(HEADER_SYNONYMS).forEach(({ canonical, synonyms }) => {
-    const regex = new RegExp(`^\\s*(${synonyms.join('|')})\\s*:?`, 'gim');
-    let match;
-    while ((match = regex.exec(resumeContent)) !== null) {
-        sectionBoundaries.push({
-            canonical,
-            index: match.index,
-            headerLength: match[0].length
-        });
-    }
-  });
+  const sections: { [key: string]: string[] } = {};
+  Object.keys(HEADER_SYNONYMS).forEach(key => sections[key] = []);
   
-  const uniqueBoundaries = Array.from(new Map(sectionBoundaries.map(item => [item.index, item])).values());
-  uniqueBoundaries.sort((a, b) => a.index - b.index);
+  let currentSection: keyof typeof HEADER_SYNONYMS | null = null;
 
-  // 3. Extract the content between each header
-  const sections: { [key: string]: string } = {};
-  for (let i = 0; i < uniqueBoundaries.length; i++) {
-    const current = uniqueBoundaries[i];
-    const next = uniqueBoundaries[i + 1];
-    const startIndex = current.index + current.headerLength;
-    const endIndex = next ? next.index : resumeContent.length;
-    const content = resumeContent.substring(startIndex, endIndex).trim();
-    sections[current.canonical] = (sections[current.canonical] || "") + "\n" + content;
+  const lines = resumeContent.split('\n');
+
+  for (const line of lines) {
+      const trimmedLine = line.trim();
+      if (trimmedLine.length === 0) continue;
+
+      const lowerLine = trimmedLine.toLowerCase().replace(/[:\s]+$/, '');
+      let isHeader = false;
+
+      // Check if the line is a header. Headers are usually short (<= 4 words) and match a synonym.
+      if (trimmedLine.split(' ').length <= 4) {
+          for (const key in HEADER_SYNONYMS) {
+              const canonical = key as keyof typeof HEADER_SYNONYMS;
+              if (HEADER_SYNONYMS[canonical].synonyms.includes(lowerLine)) {
+                  currentSection = canonical;
+                  isHeader = true;
+                  break;
+              }
+          }
+      }
+
+      // If it's not a header, add it to the current section's content
+      if (!isHeader && currentSection) {
+          sections[currentSection].push(trimmedLine);
+      }
   }
 
-  // 4. Parse the clean content from each extracted section
-  const parseEntries = (text: string): string[] => {
-    if (!text) return [];
-    return text.split('\n')
-      .map(line => line.replace(/^[•*-]\s*/, '').trim())
-      .filter(line => {
-          const trimmed = line.trim();
-          if (trimmed.length < 5) return false;
-          if (/^\s*$/.test(trimmed)) return false;
-          const lowerLine = trimmed.toLowerCase().replace(':', '');
-          if (allSynonyms.some(synonym => lowerLine.startsWith(synonym))) return false;
-          return true;
-      });
+  // Now process the collected lines for each section
+  const parseEntries = (lines: string[]): string[] => {
+      return lines
+          .map(line => line.replace(/^[•*-]\s*/, '').trim())
+          .filter(line => line.length > 5 && !allSynonyms.some(synonym => line.toLowerCase().startsWith(synonym)));
   };
 
-  const educationContent = sections["EDUCATION"] || "";
-  const education = parseEntries(educationContent);
+  const educationLines = sections["EDUCATION"];
+  const educationContent = educationLines.join('\n');
+  const education = parseEntries(educationLines);
   let resumeUGCGPA = 0;
   const cgpaMatch = educationContent.match(/(?:CGPA|gpa)\s*[:\s/]*\s*(\d\.\d+)/i);
   if (cgpaMatch) {
-    resumeUGCGPA = parseFloat(cgpaMatch[1]);
+      resumeUGCGPA = parseFloat(cgpaMatch[1]);
   }
 
-  const experienceContent = (sections["EXPERIENCE"] || "") + "\n" + (sections["PROJECTS"] || "");
-  const experience = parseEntries(experienceContent);
+  const experienceLines = [...sections["EXPERIENCE"], ...sections["PROJECTS"]];
+  const experience = parseEntries(experienceLines);
 
-  const skillsContent = sections["SKILLS"] || "";
+  const skillsLines = sections["SKILLS"];
   const explicitSkills = new Set<string>();
-  if (skillsContent) {
-    skillsContent.split('\n').forEach(line => {
+  skillsLines.forEach(line => {
       const cleanedLine = line.replace(/^[•*-]\s*/, '').trim();
       const parts = cleanedLine.split(':');
       const skillsString = (parts.length > 1 ? parts[1] : parts[0]).trim();
       
       skillsString.split(/[,;•|]/)
-        .map(s => s.trim().replace(/\.$/, ''))
-        .filter(s => s && s.length > 1 && !allSynonyms.includes(s.toLowerCase()))
-        .forEach(skill => explicitSkills.add(skill));
-    });
-  }
+          .map(s => s.trim().replace(/\.$/, ''))
+          .filter(s => s && s.length > 1 && !allSynonyms.includes(s.toLowerCase()))
+          .forEach(skill => explicitSkills.add(skill));
+  });
   
   // --- END OF RE-ENGINEERED LOGIC ---
 
@@ -565,7 +559,7 @@ const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescrip
       if (jdCriteria.minUGCGPA > 0 && resumeUGCGPA > 0 && resumeUGCGPA < jdCriteria.minUGCGPA) {
           scoreReasoning.push(`UG CGPA (${resumeUGCGPA}) is below required ${jdCriteria.minUGCGPA}.`); baseScore -= 3;
       }
-      if (jdCriteria.zeroExperienceCandidatesOnly && experience.some(exp => !exp.toLowerCase().includes("project"))) {
+      if (jdCriteria.zeroExperienceCandidatesOnly && experience.length > 0 && experience.some(exp => !exp.toLowerCase().includes("project"))) {
           scoreReasoning.push("Candidate has professional experience, but job requires zero experience."); baseScore -= 4;
       }
 
