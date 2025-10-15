@@ -1,11 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 // Use the legacy build of pdfjs-dist to avoid worker issues in Deno
-import { getDocument, GlobalWorkerOptions } from 'https://esm.sh/pdfjs-dist@4.5.136/legacy/build/pdf.mjs';
-
-// The legacy build of pdf.js does not use a worker, but it still checks for this property.
-// We provide a full CDN path to the worker file to satisfy the library's internal path validation.
-GlobalWorkerOptions.workerSrc = 'https://esm.sh/pdfjs-dist@4.5.136/build/pdf.worker.mjs';
+import { getDocument } from 'https://esm.sh/pdfjs-dist@4.5.136/legacy/build/pdf.mjs';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -49,8 +45,8 @@ serve(async (req) => {
     // Decode Base64 PDF data
     const pdfBuffer = Uint8Array.from(atob(resumeBase64), c => c.charCodeAt(0));
 
-    // --- Parse PDF using the legacy build of pdfjs-dist ---
-    const doc = await getDocument(pdfBuffer).promise;
+    // --- Parse PDF using the legacy build and explicitly disabling the worker ---
+    const doc = await getDocument({ data: pdfBuffer, disableWorker: true }).promise;
     let resumeText = '';
     for (let i = 1; i <= doc.numPages; i++) {
         const page = await doc.getPage(i);
