@@ -7,7 +7,11 @@ import { motion } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from '@/lib/utils';
 import { showError } from '@/utils/toast';
-import { Docling } from 'docling'; // Import Docling
+import * as pdfjs from 'pdfjs-dist'; // Import pdfjs-dist
+import mammoth from 'mammoth'; // Import mammoth
+
+// Configure pdfjs worker source
+pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 // Define the comprehensive list of roles and their core keywords
 const ROLE_KEYWORDS: { [key: string]: string[] } = {
@@ -382,12 +386,26 @@ const ROLE_KEYWORDS: { [key: string]: string[] } = {
 };
 
 const readFileContent = async (file: File): Promise<string> => {
-  try {
-    const textContent = await Docling.parse(file);
-    return textContent;
-  } catch (error) {
-    console.error(`Error parsing file with Docling: ${file.name}`, error);
-    throw new Error(`Failed to parse file ${file.name} using Docling.`);
+  const fileType = file.type;
+
+  if (fileType === 'application/pdf') {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+    let fullText = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      fullText += textContent.items.map((item: any) => item.str).join(' ');
+    }
+    return fullText;
+  } else if (fileType === 'application/msword' || fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+    const arrayBuffer = await file.arrayBuffer();
+    const { value } = await mammoth.extractRawText({ arrayBuffer });
+    return value;
+  } else if (fileType === 'text/plain') {
+    return await file.text();
+  } else {
+    throw new Error(`Unsupported file type: ${fileType}`);
   }
 };
 
