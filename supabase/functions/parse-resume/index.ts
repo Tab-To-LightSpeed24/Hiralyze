@@ -4,8 +4,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { getDocument, GlobalWorkerOptions } from 'https://esm.sh/pdfjs-dist@4.5.136/legacy/build/pdf.mjs';
 
 // The legacy build of pdf.js does not use a worker, but it still checks for this property.
-// We set it to a dummy value to satisfy the library's internal check.
-GlobalWorkerOptions.workerSrc = 'pdf.worker.js';
+// We provide a full CDN path to the worker file to satisfy the library's internal path validation.
+GlobalWorkerOptions.workerSrc = 'https://esm.sh/pdfjs-dist@4.5.136/build/pdf.worker.mjs';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
