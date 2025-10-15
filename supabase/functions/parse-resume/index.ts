@@ -1,13 +1,16 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import pdfParse from 'https://esm.sh/pdf-parse@1.1.1'; // Import pdf-parse for Deno
+// Use pdfjs-dist instead of pdf-parse for better Deno compatibility
+import * as pdfjs from 'https://esm.sh/pdfjs-dist@4.5.136';
+
+// Set the worker source for pdfjs-dist
+pdfjs.GlobalWorkerOptions.workerSrc = 'https://esm.sh/pdfjs-dist@4.5.136/build/pdf.worker.mjs';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Initialize Supabase client for auth (if needed, though not directly used in this function's core logic)
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
   Deno.env.get('SUPABASE_ANON_KEY') ?? ''
@@ -19,7 +22,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Authenticate the request (optional, but good practice for protected functions)
+  // Authenticate the request
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
     return new Response('Unauthorized: Missing Authorization header', { status: 401, headers: corsHeaders });
@@ -45,9 +48,16 @@ serve(async (req) => {
     // Decode Base64 PDF data
     const pdfBuffer = Uint8Array.from(atob(resumeBase64), c => c.charCodeAt(0));
 
-    // Parse PDF to extract text
-    const pdfData = await pdfParse(pdfBuffer);
-    const resumeText = pdfData.text;
+    // --- Parse PDF using pdfjs-dist ---
+    const doc = await pdfjs.getDocument(pdfBuffer).promise;
+    let resumeText = '';
+    for (let i = 1; i <= doc.numPages; i++) {
+        const page = await doc.getPage(i);
+        const content = await page.getTextContent();
+        // Join all text items with a space and add a newline for each page
+        resumeText += content.items.map(item => item.str).join(' ') + '\n'; 
+    }
+    // --- End PDF parsing ---
 
     // 1. Construct a detailed prompt for the LLM
     const prompt = `
