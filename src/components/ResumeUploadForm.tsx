@@ -9,13 +9,15 @@ import { motion } from "framer-motion";
 import { UploadCloud, FileText } from "lucide-react";
 import { cn } from '@/lib/utils';
 import { Candidate } from '@/types'; // Import Candidate type
-import * as pdfParseModule from 'pdf-parse'; // Import as a namespace
+// Removed: import pdfParse from 'pdf-parse'; // This library is for Node.js, not browser
 
-// Access the pdfParse function directly from the module object
-const pdfParse = pdfParseModule;
+interface ResumeFileWithData {
+  fileName: string;
+  arrayBuffer: ArrayBuffer; // Now passing ArrayBuffer instead of text
+}
 
 interface ResumeUploadFormProps {
-  onProcessResumes: (jobDescription: string, resumeTexts: { fileName: string, text: string }[]) => Promise<Candidate[]>; // Updated to accept resumeTexts
+  onProcessResumes: (jobDescription: string, resumeFilesData: ResumeFileWithData[]) => Promise<Candidate[]>; // Updated prop type
 }
 
 const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes }) => {
@@ -75,14 +77,13 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes })
 
     setIsSubmitting(true); // Start loading
     try {
-      const resumeTexts: { fileName: string, text: string }[] = [];
+      const resumeFilesData: ResumeFileWithData[] = [];
       for (const file of resumeFiles) {
         const arrayBuffer = await file.arrayBuffer();
-        const data = await pdfParse(arrayBuffer);
-        resumeTexts.push({ fileName: file.name, text: data.text });
+        resumeFilesData.push({ fileName: file.name, arrayBuffer: arrayBuffer });
       }
 
-      await onProcessResumes(jobDescription, resumeTexts);
+      await onProcessResumes(jobDescription, resumeFilesData);
       showSuccess("Resumes and job description submitted for processing!");
       setJobDescription("");
       setResumeFiles([]);
