@@ -9,10 +9,7 @@ import { motion } from "framer-motion";
 import { UploadCloud, FileText } from "lucide-react";
 import { cn } from '@/lib/utils';
 import { Candidate } from '@/types'; // Import Candidate type
-import * as pdfParseModule from 'pdf-parse'; // Changed import to namespace import
-
-// Access the pdfParse function from the module
-const pdfParse = (pdfParseModule as any).default || pdfParseModule;
+import pdfParse from 'pdf-parse'; // Simplified import
 
 interface ResumeUploadFormProps {
   onProcessResumes: (jobDescription: string, resumeTexts: { fileName: string, text: string }[]) => Promise<Candidate[]>; // Updated to accept resumeTexts
