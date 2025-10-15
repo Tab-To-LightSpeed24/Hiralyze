@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { extractText } from "https://deno.land/x/pdfjs@1.0.0/mod.ts";
+import { readPdf } from "https://deno.land/x/pdf_reader@0.1.0/mod.ts"; // Switched to pdf_reader
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -44,9 +44,11 @@ serve(async (req) => {
       });
     }
 
-    // 1. Extract text from PDF using deno-pdf
+    // 1. Extract text from PDF using pdf_reader
     const fileBuffer = await resumeFile.arrayBuffer();
-    const pdfText = await extractText(fileBuffer);
+    const pdfDocument = await readPdf(fileBuffer);
+    const pdfText = pdfDocument.pages.map(page => page.text).join('\n');
+
 
     // 2. Construct a detailed prompt for the LLM
     const prompt = `
