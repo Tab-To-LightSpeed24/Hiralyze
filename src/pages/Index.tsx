@@ -417,14 +417,14 @@ const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescrip
   const resumeContentLower = resumeContent.toLowerCase();
   const jobDescriptionLower = jobDescription.toLowerCase();
 
-  // --- NEW, MORE ROBUST PARSING LOGIC ---
+  // --- RE-ENGINEERED PARSING LOGIC ---
 
   // 1. Define headers and a wide range of synonyms
   const HEADER_SYNONYMS: { [key: string]: { canonical: string; synonyms: string[] } } = {
     PROFILE: { canonical: "PROFILE", synonyms: ["profile", "summary", "objective", "about"] },
     EDUCATION: { canonical: "EDUCATION", synonyms: ["education", "academic qualifications", "academics", "education history"] },
-    SKILLS: { canonical: "SKILLS", synonyms: ["skills", "technical skills", "core competencies", "technologies", "technical proficiency"] },
-    EXPERIENCE: { canonical: "EXPERIENCE", synonyms: ["experience", "work experience", "professional experience", "employment history"] },
+    SKILLS: { canonical: "SKILLS", synonyms: ["skills", "technical skills", "core competencies", "technologies", "technical proficiency", "area of interest"] },
+    EXPERIENCE: { canonical: "EXPERIENCE", synonyms: ["experience", "work experience", "professional experience", "employment history", "internship"] },
     PROJECTS: { canonical: "PROJECTS", synonyms: ["projects", "personal projects", "academic projects"] },
     CERTIFICATIONS: { canonical: "CERTIFICATIONS", synonyms: ["certifications", "licenses & certifications", "courses"] },
     AWARDS: { canonical: "AWARDS", synonyms: ["awards", "honors & awards", "achievements"] },
@@ -434,7 +434,6 @@ const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescrip
   // 2. Find all potential section headers and their locations in the text
   const sectionBoundaries: { canonical: string; index: number; headerLength: number }[] = [];
   Object.values(HEADER_SYNONYMS).forEach(({ canonical, synonyms }) => {
-    // This regex finds headers at the start of a line, making it very robust
     const regex = new RegExp(`^\\s*(${synonyms.join('|')})\\s*:?`, 'gim');
     let match;
     while ((match = regex.exec(resumeContent)) !== null) {
@@ -445,17 +444,18 @@ const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescrip
         });
     }
   });
-  sectionBoundaries.sort((a, b) => a.index - b.index);
+  
+  const uniqueBoundaries = Array.from(new Map(sectionBoundaries.map(item => [item.index, item])).values());
+  uniqueBoundaries.sort((a, b) => a.index - b.index);
 
   // 3. Extract the content between each header
   const sections: { [key: string]: string } = {};
-  for (let i = 0; i < sectionBoundaries.length; i++) {
-    const current = sectionBoundaries[i];
-    const next = sectionBoundaries[i + 1];
+  for (let i = 0; i < uniqueBoundaries.length; i++) {
+    const current = uniqueBoundaries[i];
+    const next = uniqueBoundaries[i + 1];
     const startIndex = current.index + current.headerLength;
     const endIndex = next ? next.index : resumeContent.length;
     const content = resumeContent.substring(startIndex, endIndex).trim();
-    // Combine content if a section (like 'Projects') appears multiple times
     sections[current.canonical] = (sections[current.canonical] || "") + "\n" + content;
   }
 
@@ -463,24 +463,28 @@ const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescrip
   const parseEntries = (text: string): string[] => {
     if (!text) return [];
     return text.split('\n')
-      .map(line => line.replace(/^[•*-]\s*/, '').trim()) // Remove bullet points
-      // Filter out empty lines and lines that are just other headers
-      .filter(line => line.length > 3 && !/^\s*$/.test(line) && !allSynonyms.some(synonym => line.toLowerCase().startsWith(synonym)));
+      .map(line => line.replace(/^[•*-]\s*/, '').trim())
+      .filter(line => {
+          const trimmed = line.trim();
+          if (trimmed.length < 5) return false;
+          if (/^\s*$/.test(trimmed)) return false;
+          const lowerLine = trimmed.toLowerCase().replace(':', '');
+          if (allSynonyms.some(synonym => lowerLine.startsWith(synonym))) return false;
+          return true;
+      });
   };
 
   const educationContent = sections["EDUCATION"] || "";
   const education = parseEntries(educationContent);
   let resumeUGCGPA = 0;
-  const cgpaMatch = educationContent.match(/CGPA\s*[:\s/]*\s*(\d\.\d+)/i);
+  const cgpaMatch = educationContent.match(/(?:CGPA|gpa)\s*[:\s/]*\s*(\d\.\d+)/i);
   if (cgpaMatch) {
     resumeUGCGPA = parseFloat(cgpaMatch[1]);
   }
 
-  // Combine Experience and Projects into one list
   const experienceContent = (sections["EXPERIENCE"] || "") + "\n" + (sections["PROJECTS"] || "");
   const experience = parseEntries(experienceContent);
 
-  // Parse skills, ensuring headers aren't accidentally included
   const skillsContent = sections["SKILLS"] || "";
   const explicitSkills = new Set<string>();
   if (skillsContent) {
@@ -496,9 +500,8 @@ const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescrip
     });
   }
   
-  // --- END OF NEW PARSING LOGIC ---
+  // --- END OF RE-ENGINEERED LOGIC ---
 
-  // --- Pass 3: Contextual Keyword Inference ---
   const allKeywords = new Set(Object.values(ROLE_KEYWORDS).flat());
   const inferredSkills = new Set<string>();
   allKeywords.forEach(keyword => {
@@ -508,10 +511,8 @@ const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescrip
       }
   });
 
-  // --- Pass 4: Data Consolidation ---
   const finalSkills = Array.from(new Set([...explicitSkills, ...inferredSkills]));
 
-  // --- JD Parsing and Matching ---
   let jdPrimaryRole: string | undefined;
   let jdPrimaryRoleKeywords: string[] = [];
   for (const role in ROLE_KEYWORDS) {
@@ -526,7 +527,6 @@ const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescrip
   const jdKeywordsToMatch = new Set<string>([...jdPrimaryRoleKeywords, ...explicitJdKeywords]);
   const finalJdKeywords = Array.from(jdKeywordsToMatch);
 
-  // --- Suggested Role (based on inferred skills) ---
   let bestRoleMatchCount = 0;
   let suggestedRole = "General Candidate";
   for (const role in ROLE_KEYWORDS) {
@@ -540,7 +540,6 @@ const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescrip
       }
   }
 
-  // --- Scoring & Justification ---
   let matchScore = 0;
   let justification = "";
   let scoreReasoning: string[] = [];
@@ -604,12 +603,11 @@ const Index = () => {
       const processedCandidatesPromises = files.map(async (file) => {
         try {
           const resumeContent = await readFileContent(file);
-          // The parsing function is now operating on REAL data
           return analyzeResume(file.name, resumeContent, jobDescription); 
         } catch (error) {
           console.error(`Failed to process file ${file.name}:`, error);
           showError(`Could not read or process ${file.name}. It might be corrupted or an unsupported format.`);
-          return null; // Return null for failed files
+          return null;
         }
       });
 
