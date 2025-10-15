@@ -5,9 +5,12 @@ import { Candidate } from "@/types";
 import { Separator } from "@/components/ui/separator";
 import { motion } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from '@/lib/utils';
 import { showError } from '@/utils/toast';
-import { supabase } from '@/integrations/supabase/client';
+import * as pdfjsLib from 'pdfjs-dist';
+import mammoth from 'mammoth';
+
+// Setup for the PDF parsing library worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 // Define the comprehensive list of roles and their core keywords
 const ROLE_KEYWORDS: { [key: string]: string[] } = {
@@ -484,7 +487,7 @@ const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescrip
     }
   }
   const explicitJdKeywords = (jobDescription.match(/(?:skills|requirements|proficient in):?\s*([\s\S]+)/i)?.[1]?.split(/,|\n|•/).map(s => s.trim().toLowerCase()).filter(Boolean)) || [];
-  const jdKeywordsToMatch = new Set<string>([...jdPrimaryRoleKeywords, ...explicitJdsKeywords]);
+  const jdKeywordsToMatch = new Set<string>([...jdPrimaryRoleKeywords, ...explicitJdKeywords]);
   const finalJdKeywords = Array.from(jdKeywordsToMatch);
 
   let bestRoleMatchCount = 0;
@@ -557,30 +560,42 @@ const Index = () => {
     setProcessing(true);
     setShortlistedCandidates([]);
     setNotShortlistedCandidates([]);
-    console.log("Processing resumes via Edge Function:", files.map(f => f.name));
+    console.log("Processing resumes locally in the browser:", files.map(f => f.name));
+
+    const getFileContent = async (file: File): Promise<string> => {
+      const arrayBuffer = await file.arrayBuffer();
+      if (file.type === 'application/pdf') {
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let fullText = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          fullText += textContent.items.map(item => ('str' in item ? item.str : '')).join(' ') + '\n';
+        }
+        return fullText;
+      } else if (
+        file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+        file.type === 'application/msword'
+      ) {
+        const { value } = await mammoth.extractRawText({ arrayBuffer });
+        return value;
+      } else if (file.type === 'text/plain') {
+        return new TextDecoder().decode(arrayBuffer);
+      }
+      throw new Error(`Unsupported file type: ${file.type}`);
+    };
 
     try {
       const processedCandidatesPromises = files.map(async (file) => {
         try {
-          const formData = new FormData();
-          formData.append('resume', file);
-
-          const { data, error } = await supabase.functions.invoke('parse-resume', {
-            body: formData,
-          });
-
-          if (error) {
-            throw error;
-          }
-
-          const resumeContent = data.text;
+          const resumeContent = await getFileContent(file);
           if (!resumeContent) {
-            throw new Error("Server returned empty content.");
+            throw new Error("Parsed content is empty.");
           }
           return analyzeResume(file.name, resumeContent, jobDescription);
         } catch (error) {
           console.error(`Failed to process file ${file.name}:`, error);
-          showError(`Server failed to process ${file.name}. Error: ${error.message}`);
+          showError(`Failed to process ${file.name}. Error: ${error.message}`);
           return null;
         }
       });
