@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import pdfParse from 'https://esm.sh/pdf-parse@1.1.1'; // Import pdf-parse for Deno
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -32,14 +33,21 @@ serve(async (req) => {
   }
 
   try {
-    const { resumeText, jobDescription, resumeFileName } = await req.json();
+    const { resumeBase64, jobDescription, resumeFileName } = await req.json();
 
-    if (!resumeText || !jobDescription || !resumeFileName) {
-      return new Response(JSON.stringify({ error: 'Missing resume text, job description, or resume file name' }), {
+    if (!resumeBase64 || !jobDescription || !resumeFileName) {
+      return new Response(JSON.stringify({ error: 'Missing resume Base64 data, job description, or resume file name' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    // Decode Base64 PDF data
+    const pdfBuffer = Uint8Array.from(atob(resumeBase64), c => c.charCodeAt(0));
+
+    // Parse PDF to extract text
+    const pdfData = await pdfParse(pdfBuffer);
+    const resumeText = pdfData.text;
 
     // 1. Construct a detailed prompt for the LLM
     const prompt = `

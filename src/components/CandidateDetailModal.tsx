@@ -35,10 +35,10 @@ Skills:
 ${candidate.skills.map(s => `- ${s}`).join('\n')}
 
 Experience:
-${candidate.experience.map(e => `- ${e}`).join('\n')}
+${candidate.experience.map(e => `- ${e.title} at ${e.company} (${e.startDate} - ${e.endDate}): ${e.description.join(' ')}`).join('\n')}
 
 Education:
-${candidate.education.map(e => `- ${e}`).join('\n')}
+${candidate.education.map(e => `- ${e.degree} from ${e.institution} (${e.startDate} - ${e.endDate})${e.gpa ? ` - GPA: ${e.gpa}` : ''}`).join('\n')}
 
 Justification:
 ${candidate.justification}
@@ -91,7 +91,16 @@ ${candidate.justification}
             <h4 className="font-semibold mb-2 text-primary text-neon-glow">Experience:</h4>
             <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 break-words">
               {candidate.experience.map((exp, expIndex) => (
-                <li key={expIndex}>{exp}</li>
+                <li key={expIndex}>
+                  <span className="font-medium text-foreground">{exp.title}</span> at {exp.company} ({exp.startDate} - {exp.endDate})
+                  {exp.description && exp.description.length > 0 && (
+                    <ul className="list-circle list-inside ml-4 text-xs">
+                      {exp.description.map((desc, descIndex) => (
+                        <li key={descIndex}>{desc}</li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
               ))}
             </ul>
           </div>
@@ -99,7 +108,10 @@ ${candidate.justification}
             <h4 className="font-semibold mb-2 text-primary text-neon-glow">Education:</h4>
             <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 break-words">
               {candidate.education.map((edu, eduIndex) => (
-                <li key={eduIndex}>{edu}</li>
+                <li key={eduIndex}>
+                  <span className="font-medium text-foreground">{edu.degree}</span> from {edu.institution} ({edu.startDate} - {edu.endDate})
+                  {edu.gpa && ` - GPA: ${edu.gpa}`}
+                </li>
               ))}
             </ul>
           </div>
