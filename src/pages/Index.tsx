@@ -399,6 +399,27 @@ const Index = () => {
     const resumeContentLower = resumeContent.toLowerCase();
     const jobDescriptionLower = jobDescription.toLowerCase();
 
+    const fileExtension = resumeFileName.split('.').pop()?.toLowerCase();
+
+    // Handle unparseable binary files (PDF, DOCX)
+    if (fileExtension === 'pdf' || fileExtension === 'doc' || fileExtension === 'docx') {
+      return {
+        id: `cand-${Date.now()}-${Math.random()}`,
+        name: candidateName,
+        email: `${candidateName.toLowerCase()}@example.com`,
+        skills: [], // Empty
+        experience: [], // Empty
+        education: [], // Empty
+        matchScore: 1, // Cannot be shortlisted if not parsed
+        justification: `This candidate, ${candidateName}, received a score of 1/10. Reasoning: The resume file (${resumeFileName}) is a binary format (PDF/DOCX) which cannot be parsed into readable text by the frontend application. Please upload a plain text (.txt) resume for full analysis.`,
+        resumeFileName: resumeFileName,
+        suggestedRole: "N/A",
+      };
+    }
+
+    // --- Parsing logic for plain text files (.txt) ---
+    const allKnownHeaders = ["EDUCATION", "WORK EXPERIENCE", "EXPERIENCE", "PROJECTS", "SKILLS", "TECHNICAL SKILLS", "CERTIFICATIONS", "PROFILE", "CLUBS AND CHAPTERS"];
+
     // Helper to extract content between two markers (now accepts RegExp for endMarker)
     const extractContentBetween = (content: string, startMarker: string, endMarkers: (string | RegExp)[]): string => {
       const startRegex = new RegExp(`(?:^|\\n\\s*)${startMarker}\\s*`, 'i');
@@ -419,8 +440,6 @@ const Index = () => {
       }
       return endIndex === -1 ? contentAfterStart.trim() : contentAfterStart.substring(0, endIndex).trim();
     };
-
-    const allKnownHeaders = ["EDUCATION", "WORK EXPERIENCE", "EXPERIENCE", "PROJECTS", "SKILLS", "TECHNICAL SKILLS", "CERTIFICATIONS", "PROFILE", "CLUBS AND CHAPTERS"];
 
     // --- Simulate JD Eligibility Criteria Parsing ---
     const jdCriteria = {
@@ -471,7 +490,9 @@ const Index = () => {
     let extractedEducationDetails: Set<string> = new Set();
 
     // Specific parsing for Aravind's education which is tightly coupled after SKILLS
-    if (resumeFileName === "Resume Aravind.pdf") {
+    if (resumeFileName === "Resume Aravind.pdf") { // This specific parsing is for a PDF, which will now be skipped.
+        // This block will effectively be skipped due to the fileExtension check above.
+        // Keeping it here for context if .txt version of Aravind's resume were to be used.
         const aravindEduMatch = resumeContent.match(/(Vellore Institute of Technology Vellore, Tamilnadu\s*B\.? Tech, Electronics and Communication Engineering.*?CGPA-?\s*(\d+\.?\d*).*?SBOA School & Junior College Chennai, Tamilnadu.*?All Indian Senior School Certificate Examination.*?Percentage :?\s*(\d+\.?\d*)%.*?SBOA School & Junior College Chennai, Tamilnadu.*?All Indian Secondary School Examination.*?Percentage :?\s*(\d+\.?\d*)%)/is);
         if (aravindEduMatch) {
             extractedEducationDetails.add(aravindEduMatch[1].trim());
@@ -525,7 +546,8 @@ const Index = () => {
     let identifiedSkills = new Set<string>();
     
     // For Aravind's resume, PROFILE and SKILLS are merged and followed by education
-    if (resumeFileName === "Resume Aravind.pdf") {
+    if (resumeFileName === "Resume Aravind.pdf") { // This specific parsing is for a PDF, which will now be skipped.
+        // This block will effectively be skipped due to the fileExtension check above.
         const profileSkillsMatch = resumeContent.match(/PROFILESoftware skills - (.*?)\.Programming Skills - (.*?)\. Soft Skills - (.*?)\.Volunteer experience - (.*?)\.SKILLS/is);
         if (profileSkillsMatch) {
             const softwareSkills = profileSkillsMatch[1].split(',').map(s => s.trim()).filter(Boolean);
@@ -618,7 +640,8 @@ const Index = () => {
 
     // Specific handling for Aravind's embedded PROJECT section
     const aravindProjectMatch = resumeContent.match(/PROJECT\s*(.*?)(?:CLUBS AND CHAPTERS|CERTIFICATES|EDUCATION|$)/is);
-    if (aravindProjectMatch && aravindProjectMatch[1]) {
+    if (aravindProjectMatch && aravindProjectMatch[1]) { // This specific parsing is for a PDF, which will now be skipped.
+        // This block will effectively be skipped due to the fileExtension check above.
         tempExperience.push(...parseExperienceEntries(aravindProjectMatch[1]));
     } else {
         // General parsing for WORK EXPERIENCE
