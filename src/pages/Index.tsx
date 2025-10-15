@@ -417,63 +417,75 @@ const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescrip
   const resumeContentLower = resumeContent.toLowerCase();
   const jobDescriptionLower = jobDescription.toLowerCase();
 
-  // --- Pass 1: Structure Identification ---
-  const allKnownHeaders = [
-      "PROFILE", "SUMMARY", "EDUCATION", "SKILLS", "TECHNICAL SKILLS", "WORK EXPERIENCE", 
-      "EXPERIENCE", "PROJECTS", "PROJECT", "CERTIFICATIONS", "PUBLICATIONS", 
-      "AWARDS", "LANGUAGES", "INTERESTS"
-  ];
-  const sectionMap: { header: string; index: number }[] = [];
-  allKnownHeaders.forEach(header => {
-      const regex = new RegExp(`(?:^|\\n)\\s*${header.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}\\s*(?:\\n|$)`, 'ig');
-      let match;
-      while ((match = regex.exec(resumeContent)) != null) {
-          sectionMap.push({ header, index: match.index });
-      }
+  // --- Pass 1: More Robust Structure Identification ---
+  const HEADER_SYNONYMS: { [key: string]: { canonical: string; synonyms: string[] } } = {
+    PROFILE: { canonical: "PROFILE", synonyms: ["profile", "summary", "objective"] },
+    EDUCATION: { canonical: "EDUCATION", synonyms: ["education", "academic qualifications", "academics", "education history"] },
+    SKILLS: { canonical: "SKILLS", synonyms: ["skills", "technical skills", "core competencies", "technologies", "technical proficiency"] },
+    EXPERIENCE: { canonical: "EXPERIENCE", synonyms: ["experience", "work experience", "professional experience", "employment history"] },
+    PROJECTS: { canonical: "PROJECTS", synonyms: ["projects", "personal projects", "academic projects"] },
+    CERTIFICATIONS: { canonical: "CERTIFICATIONS", synonyms: ["certifications", "licenses & certifications", "courses"] },
+    AWARDS: { canonical: "AWARDS", synonyms: ["awards", "honors & awards", "achievements"] },
+  };
+
+  const allSynonyms = Object.values(HEADER_SYNONYMS).flatMap(h => h.synonyms);
+  const sectionMap: { header: string; canonical: string; index: number }[] = [];
+
+  Object.values(HEADER_SYNONYMS).forEach(({ canonical, synonyms }) => {
+    const regex = new RegExp(`(?:^|\\n)\\s*(${synonyms.join('|')})[:\\s]*\\n`, 'ig');
+    let match;
+    while ((match = regex.exec(resumeContent)) != null) {
+      sectionMap.push({ header: match[1], canonical, index: match.index });
+    }
   });
   sectionMap.sort((a, b) => a.index - b.index);
 
   // --- Pass 2: Section-Specific Extraction ---
-  let education: string[] = [];
-  let experience: string[] = [];
-  let explicitSkills = new Set<string>();
-  let resumeUGCGPA = 0;
-
-  const getSectionContent = (header: string): string => {
-      const section = sectionMap.find(s => s.header.toLowerCase() === header.toLowerCase());
-      if (!section) return "";
-      const currentIndex = sectionMap.findIndex(s => s.index === section.index);
-      const nextSection = sectionMap[currentIndex + 1];
-      const startIndex = section.index + section.header.length;
-      const endIndex = nextSection ? nextSection.index : resumeContent.length;
-      return resumeContent.substring(startIndex, endIndex).trim();
+  const getSectionContent = (canonicalHeader: string): string => {
+    const section = sectionMap.find(s => s.canonical === canonicalHeader);
+    if (!section) return "";
+    const currentIndex = sectionMap.findIndex(s => s.index === section.index);
+    const nextSection = sectionMap[currentIndex + 1];
+    const startIndex = section.index + section.header.length;
+    const endIndex = nextSection ? nextSection.index : resumeContent.length;
+    return resumeContent.substring(startIndex, endIndex).trim();
   };
-  
-  const parseEntries = (text: string): string[] => text.split('\n').map(line => line.replace(/•/g, '').trim()).filter(line => line.length > 2 && line.split(' ').length > 1);
+
+  const parseEntries = (text: string): string[] => {
+    if (!text) return [];
+    return text.split('\n')
+      .map(line => line.replace(/^[•*-]\s*/, '').trim()) // Remove bullet points
+      .filter(line => line.length > 5 && line.split(' ').length > 1 && !allSynonyms.includes(line.toLowerCase().replace(':', ''))); // Filter out empty lines, short lines, and headers
+  };
 
   // Education
   const educationContent = getSectionContent("EDUCATION");
-  if (educationContent) {
-      education = parseEntries(educationContent);
-      const cgpaMatch = educationContent.match(/CGPA[-:\s/]*(\d+\.?\d*)/i);
-      if (cgpaMatch) resumeUGCGPA = parseFloat(cgpaMatch[1]);
+  const education = parseEntries(educationContent);
+  let resumeUGCGPA = 0;
+  const cgpaMatch = educationContent.match(/CGPA\s*[:\s/]*\s*(\d\.\d+)/i);
+  if (cgpaMatch) {
+    resumeUGCGPA = parseFloat(cgpaMatch[1]);
   }
 
   // Experience & Projects
-  const workExpContent = getSectionContent("WORK EXPERIENCE") || getSectionContent("EXPERIENCE");
-  const projectsContent = getSectionContent("PROJECTS") || getSectionContent("PROJECT");
-  if (workExpContent) experience.push(...parseEntries(workExpContent));
-  if (projectsContent) experience.push(...parseEntries(projectsContent));
+  const experienceContent = getSectionContent("EXPERIENCE");
+  const projectsContent = getSectionContent("PROJECTS");
+  const experience = [...parseEntries(experienceContent), ...parseEntries(projectsContent)];
 
   // Skills
-  const skillsContent = getSectionContent("SKILLS") || getSectionContent("TECHNICAL SKILLS");
+  const skillsContent = getSectionContent("SKILLS");
+  const explicitSkills = new Set<string>();
   if (skillsContent) {
-      skillsContent.split('\n').forEach(line => {
-          const cleanedLine = line.replace(/•/g, '').trim();
-          const parts = cleanedLine.split(':');
-          const skillsString = (parts.length > 1 ? parts[1] : parts[0]).trim();
-          skillsString.split(/, |,|; /).map(s => s.trim().replace(/\.$/, '')).filter(Boolean).forEach(skill => explicitSkills.add(skill));
-      });
+    skillsContent.split('\n').forEach(line => {
+      const cleanedLine = line.replace(/^[•*-]\s*/, '').trim();
+      const parts = cleanedLine.split(':');
+      const skillsString = (parts.length > 1 ? parts[1] : parts[0]).trim();
+      
+      skillsString.split(/[,;•|]/)
+        .map(s => s.trim().replace(/\.$/, ''))
+        .filter(s => s && s.length > 1 && !allSynonyms.includes(s.toLowerCase())) // Filter out empty strings and headers
+        .forEach(skill => explicitSkills.add(skill));
+    });
   }
 
   // --- Pass 3: Contextual Keyword Inference ---
