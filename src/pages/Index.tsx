@@ -6,14 +6,8 @@ import { Separator } from "@/components/ui/separator";
 import { motion } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from '@/lib/utils';
-import mammoth from 'mammoth';
 import { showError } from '@/utils/toast';
-import * as pdfjsLib from 'pdfjs-dist';
-
-// Setup worker for pdfjs-dist. This is a required step.
-// Using a more reliable CDN (jsdelivr) to avoid bundling issues with Vite.
-const PDFJS_VERSION = "4.4.170";
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.js`;
+import { supabase } from '@/integrations/supabase/client';
 
 // Define the comprehensive list of roles and their core keywords
 const ROLE_KEYWORDS: { [key: string]: string[] } = {
@@ -387,32 +381,6 @@ const ROLE_KEYWORDS: { [key: string]: string[] } = {
   ],
 };
 
-const readFileContent = async (file: File): Promise<string> => {
-  const extension = file.name.split('.').pop()?.toLowerCase();
-  const arrayBuffer = await file.arrayBuffer();
-
-  if (extension === 'pdf') {
-    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });
-    const pdf = await loadingTask.promise;
-    let fullText = '';
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items.map((item: any) => item.str).join(' ');
-      fullText += pageText + '\n';
-    }
-    return fullText;
-  } else if (extension === 'docx' || extension === 'doc') {
-    const result = await mammoth.extractRawText({ arrayBuffer });
-    return result.value;
-  } else if (extension === 'txt') {
-    const decoder = new TextDecoder('utf-8');
-    return decoder.decode(arrayBuffer);
-  } else {
-    throw new Error(`Unsupported file type: .${extension}`);
-  }
-};
-
 const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescription: string): Candidate => {
   const candidateName = resumeFileName.split('.')[0];
   const resumeContentLower = resumeContent.toLowerCase();
@@ -589,16 +557,30 @@ const Index = () => {
     setProcessing(true);
     setShortlistedCandidates([]);
     setNotShortlistedCandidates([]);
-    console.log("Processing real resume files:", files.map(f => f.name));
+    console.log("Processing resumes via Edge Function:", files.map(f => f.name));
 
     try {
       const processedCandidatesPromises = files.map(async (file) => {
         try {
-          const resumeContent = await readFileContent(file);
-          return analyzeResume(file.name, resumeContent, jobDescription); 
+          const formData = new FormData();
+          formData.append('resume', file);
+
+          const { data, error } = await supabase.functions.invoke('parse-resume', {
+            body: formData,
+          });
+
+          if (error) {
+            throw error;
+          }
+
+          const resumeContent = data.text;
+          if (!resumeContent) {
+            throw new Error("Server returned empty content.");
+          }
+          return analyzeResume(file.name, resumeContent, jobDescription);
         } catch (error) {
           console.error(`Failed to process file ${file.name}:`, error);
-          showError(`Could not read or process ${file.name}. It might be corrupted or an unsupported format.`);
+          showError(`Server failed to process ${file.name}. Error: ${error.message}`);
           return null;
         }
       });
