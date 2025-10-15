@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { PDFDocument } from "https://deno.land/x/deno_pdf@0.1.0/mod.ts";
+import { PdfReader } from "https://deno.land/x/pdf_reader@0.1.0/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,12 +29,12 @@ serve(async (req) => {
       bytes[i] = binaryString.charCodeAt(i);
     }
 
-    const pdfDoc = await PDFDocument.load(bytes);
+    const reader = new PdfReader(bytes);
+    const pages = await reader.parse();
     let fullText = '';
 
-    for (const page of pdfDoc.getPages()) {
-      const text = await page.getTextContent();
-      fullText += text.items.map(item => item.str).join(' ') + '\n';
+    for (const page of pages) {
+      fullText += page.text + '\n';
     }
 
     return new Response(JSON.stringify({ fileName, content: fullText }), {
