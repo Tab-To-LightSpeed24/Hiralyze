@@ -10,9 +10,11 @@ import * as pdfjsLib from 'pdfjs-dist';
 import mammoth from 'mammoth';
 import { showError } from '@/utils/toast';
 
-// Setup PDF.js worker. This is required for it to work in the browser.
-// Using a reliable CDN with the correct version and filename to fix the 404 error.
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.170/build/pdf.worker.min.mjs`;
+// This is the definitive fix:
+// It tells the build tool (Vite) to find the worker file in the installed package
+// and serve it locally, avoiding all CDN and network issues.
+const workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
+pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
 
 // Define the comprehensive list of roles and their core keywords
 const ROLE_KEYWORDS: { [key: string]: string[] } = {
