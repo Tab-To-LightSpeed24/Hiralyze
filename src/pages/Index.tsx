@@ -530,10 +530,10 @@ const Index = () => {
             if (resumeContentLower.includes(keyword)) matchedJdKeywordsCount++;
         });
 
-        // Changed shortlisting criteria to 5 keywords
-        if (matchedJdKeywordsCount < 5) { 
+        // Changed shortlisting criteria to 10 keywords
+        if (matchedJdKeywordsCount < 10) { 
             isShortlisted = false;
-            justification = `Candidate is not shortlisted. Only ${matchedJdKeywordsCount} out of ${finalJdKeywords.length} key skills/keywords from the job description were found in the resume. A minimum of 5 keywords are required for shortlisting.`;
+            justification = `Candidate is not shortlisted. Only ${matchedJdKeywordsCount} out of ${finalJdKeywords.length} key skills/keywords from the job description were found in the resume. A minimum of 10 keywords are required for shortlisting.`;
             scoreReasoning.push(`Low JD keyword match (${matchedJdKeywordsCount}/${finalJdKeywords.length}).`);
         } else {
             scoreReasoning.push(`${matchedJdKeywordsCount}/${finalJdKeywords.length} JD keywords matched.`);
