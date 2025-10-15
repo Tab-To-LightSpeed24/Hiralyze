@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { PdfReader } from "https://deno.land/x/pdf_reader@0.1.0/mod.ts";
+import pdfParse from "https://esm.sh/pdf-parse@1.1.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,7 +21,7 @@ serve(async (req) => {
       });
     }
 
-    // Decode Base64 to ArrayBuffer
+    // Decode Base64 to Uint8Array
     const binaryString = atob(fileBase64);
     const len = binaryString.length;
     const bytes = new Uint8Array(len);
@@ -29,13 +29,9 @@ serve(async (req) => {
       bytes[i] = binaryString.charCodeAt(i);
     }
 
-    const reader = new PdfReader(bytes);
-    const pages = await reader.parse();
-    let fullText = '';
-
-    for (const page of pages) {
-      fullText += page.text + '\n';
-    }
+    // pdf-parse accepts Uint8Array directly
+    const data = await pdfParse(bytes);
+    const fullText = data.text;
 
     return new Response(JSON.stringify({ fileName, content: fullText }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
