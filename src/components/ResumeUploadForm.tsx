@@ -9,9 +9,10 @@ import { motion } from "framer-motion";
 import { UploadCloud, FileText } from "lucide-react";
 import { cn } from '@/lib/utils';
 import { Candidate } from '@/types'; // Import Candidate type
+import pdfParse from 'pdf-parse'; // Import pdf-parse
 
 interface ResumeUploadFormProps {
-  onProcessResumes: (jobDescription: string, files: File[]) => Promise<Candidate[]>; // Updated to return Promise<Candidate[]>
+  onProcessResumes: (jobDescription: string, resumeTexts: { fileName: string, text: string }[]) => Promise<Candidate[]>; // Updated to accept resumeTexts
 }
 
 const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes }) => {
@@ -22,7 +23,6 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes })
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
-      // Append new files instead of replacing existing ones
       setResumeFiles(prevFiles => [...prevFiles, ...Array.from(event.target.files)]);
     }
   };
@@ -72,11 +72,17 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes })
 
     setIsSubmitting(true); // Start loading
     try {
-      await onProcessResumes(jobDescription, resumeFiles);
+      const resumeTexts: { fileName: string, text: string }[] = [];
+      for (const file of resumeFiles) {
+        const arrayBuffer = await file.arrayBuffer();
+        const data = await pdfParse(arrayBuffer);
+        resumeTexts.push({ fileName: file.name, text: data.text });
+      }
+
+      await onProcessResumes(jobDescription, resumeTexts);
       showSuccess("Resumes and job description submitted for processing!");
       setJobDescription("");
       setResumeFiles([]);
-      // Reset file input if it exists
       const fileInput = document.getElementById("resumes") as HTMLInputElement;
       if (fileInput) {
         fileInput.value = "";

@@ -5,7 +5,7 @@ import { Candidate, ExperienceEntry, EducationEntry } from "@/types"; // Import 
 import { Separator } from "@/components/ui/separator";
 import { motion } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from '@/lib/utils';
+import { cn } '@/lib/utils';
 import { useSession } from '@/components/SessionContextProvider'; // To get auth token
 import { showError } from '@/utils/toast';
 
@@ -552,7 +552,7 @@ const Index = () => {
     return candidate;
   };
 
-  const handleProcessResumes = async (jobDescription: string, files: File[]): Promise<Candidate[]> => {
+  const handleProcessResumes = async (jobDescription: string, resumeTexts: { fileName: string, text: string }[]): Promise<Candidate[]> => {
     setProcessing(true);
     const processedCandidates: Candidate[] = [];
     const authToken = session?.access_token;
@@ -563,41 +563,42 @@ const Index = () => {
       return [];
     }
 
-    for (const file of files) {
+    for (const resumeData of resumeTexts) {
       try {
-        const formData = new FormData();
-        formData.append('resume', file);
-        formData.append('jobDescription', jobDescription);
-
         const response = await fetch('https://dcxzxknlizesuengfhia.supabase.co/functions/v1/parse-resume', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json', // Now sending JSON
           },
-          body: formData,
+          body: JSON.stringify({ // Send resumeText and jobDescription as JSON
+            resumeText: resumeData.text,
+            jobDescription: jobDescription,
+            resumeFileName: resumeData.fileName,
+          }),
         });
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(`Failed to parse resume ${file.name}: ${errorData.error || response.statusText}`);
+          throw new Error(`Failed to parse resume ${resumeData.fileName}: ${errorData.error || response.statusText}`);
         }
 
         const parsedData: Candidate = await response.json();
         processedCandidates.push(analyzeCandidateMatch(parsedData, jobDescription)); // Apply scoring after parsing
       } catch (error: any) {
-        console.error(`Error processing ${file.name}:`, error);
-        showError(`Failed to process ${file.name}: ${error.message}`);
+        console.error(`Error processing ${resumeData.fileName}:`, error);
+        showError(`Failed to process ${resumeData.fileName}: ${error.message}`);
         // Add a placeholder candidate for failed parsing
         processedCandidates.push({
           id: `failed-${Date.now()}-${Math.random()}`,
-          name: file.name.split('.')[0] || 'Unknown Candidate',
+          name: resumeData.fileName.split('.')[0] || 'Unknown Candidate',
           email: 'N/A',
           skills: ['Parsing Failed'],
           experience: [{ title: 'N/A', company: 'N/A', startDate: 'N/A', endDate: 'N/A', description: ['Failed to extract data.'] }],
           education: [{ degree: 'N/A', institution: 'N/A', startDate: 'N/A', endDate: 'N/A' }],
           matchScore: 1,
           justification: `Failed to parse resume: ${error.message}`,
-          resumeFileName: file.name,
+          resumeFileName: resumeData.fileName,
           suggestedRole: 'N/A',
         });
       }
