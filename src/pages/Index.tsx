@@ -6,15 +6,9 @@ import { Separator } from "@/components/ui/separator";
 import { motion } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from '@/lib/utils';
-import * as pdfjsLib from 'pdfjs-dist';
 import mammoth from 'mammoth';
 import { showError } from '@/utils/toast';
-
-// This is the definitive fix:
-// It tells the build tool (Vite) to find the worker file in the installed package
-// and serve it locally, avoiding all CDN and network issues.
-const workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
-pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
+import pdf from 'pdf-parse';
 
 // Define the comprehensive list of roles and their core keywords
 const ROLE_KEYWORDS: { [key: string]: string[] } = {
@@ -393,14 +387,8 @@ const readFileContent = async (file: File): Promise<string> => {
   const arrayBuffer = await file.arrayBuffer();
 
   if (extension === 'pdf') {
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    let fullText = '';
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      fullText += textContent.items.map(item => ('str' in item ? item.str : '')).join(' ') + '\n';
-    }
-    return fullText;
+    const data = await pdf(arrayBuffer);
+    return data.text;
   } else if (extension === 'docx' || extension === 'doc') {
     const result = await mammoth.extractRawText({ arrayBuffer });
     return result.value;
@@ -417,10 +405,9 @@ const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescrip
   const resumeContentLower = resumeContent.toLowerCase();
   const jobDescriptionLower = jobDescription.toLowerCase();
 
-  // --- RE-ENGINEERED PARSING LOGIC V3 ---
+  // --- RE-ENGINEERED PARSING LOGIC V4 ---
 
   const HEADER_SYNONYMS = {
-      PROFILE: { canonical: "PROFILE", synonyms: ["profile", "summary", "objective", "about"] },
       EDUCATION: { canonical: "EDUCATION", synonyms: ["education", "academic qualifications", "academics", "education history"] },
       SKILLS: { canonical: "SKILLS", synonyms: ["skills", "technical skills", "core competencies", "technologies", "technical proficiency", "area of interest"] },
       EXPERIENCE: { canonical: "EXPERIENCE", synonyms: ["experience", "work experience", "professional experience", "employment history", "internship"] },
@@ -434,35 +421,35 @@ const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescrip
   Object.keys(HEADER_SYNONYMS).forEach(key => sections[key] = []);
   
   let currentSection: keyof typeof HEADER_SYNONYMS | null = null;
-
-  const lines = resumeContent.split('\n');
+  const lines = resumeContent.split('\n').filter(line => line.trim().length > 0);
 
   for (const line of lines) {
       const trimmedLine = line.trim();
-      if (trimmedLine.length === 0) continue;
-
       const lowerLine = trimmedLine.toLowerCase().replace(/[:\s]+$/, '');
       let isHeader = false;
 
-      // Check if the line is a header. Headers are usually short (<= 4 words) and match a synonym.
+      // A header is a short line that matches a synonym and is not part of a sentence.
       if (trimmedLine.split(' ').length <= 4) {
           for (const key in HEADER_SYNONYMS) {
               const canonical = key as keyof typeof HEADER_SYNONYMS;
-              if (HEADER_SYNONYMS[canonical].synonyms.includes(lowerLine)) {
+              if (HEADER_SYNONYMS[canonical].synonyms.some(syn => lowerLine.startsWith(syn))) {
                   currentSection = canonical;
                   isHeader = true;
+                  // If the header line also contains content (e.g., "Skills: C++, Java"), capture it.
+                  const contentAfterHeader = trimmedLine.substring(lowerLine.length).replace(/^[:\s]+/, '');
+                  if (contentAfterHeader.length > 2) {
+                      sections[currentSection].push(contentAfterHeader);
+                  }
                   break;
               }
           }
       }
 
-      // If it's not a header, add it to the current section's content
       if (!isHeader && currentSection) {
           sections[currentSection].push(trimmedLine);
       }
   }
 
-  // Now process the collected lines for each section
   const parseEntries = (lines: string[]): string[] => {
       return lines
           .map(line => line.replace(/^[•*-]\s*/, '').trim())
@@ -494,8 +481,6 @@ const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescrip
           .forEach(skill => explicitSkills.add(skill));
   });
   
-  // --- END OF RE-ENGINEERED LOGIC ---
-
   const allKeywords = new Set(Object.values(ROLE_KEYWORDS).flat());
   const inferredSkills = new Set<string>();
   allKeywords.forEach(keyword => {
