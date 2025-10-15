@@ -8,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from '@/lib/utils';
 import mammoth from 'mammoth';
 import { showError } from '@/utils/toast';
-import pdf from 'pdf-parse';
 
 // Define the comprehensive list of roles and their core keywords
 const ROLE_KEYWORDS: { [key: string]: string[] } = {
@@ -387,6 +386,7 @@ const readFileContent = async (file: File): Promise<string> => {
   const arrayBuffer = await file.arrayBuffer();
 
   if (extension === 'pdf') {
+    const pdf = (await import('pdf-parse')).default;
     const data = await pdf(arrayBuffer);
     return data.text;
   } else if (extension === 'docx' || extension === 'doc') {
