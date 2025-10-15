@@ -8,6 +8,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from '@/lib/utils';
 import mammoth from 'mammoth';
 import { showError } from '@/utils/toast';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Setup worker for pdfjs-dist. This is a required step.
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.js',
+  import.meta.url,
+).toString();
 
 // Define the comprehensive list of roles and their core keywords
 const ROLE_KEYWORDS: { [key: string]: string[] } = {
@@ -386,9 +393,16 @@ const readFileContent = async (file: File): Promise<string> => {
   const arrayBuffer = await file.arrayBuffer();
 
   if (extension === 'pdf') {
-    const pdf = await import('pdf-parse');
-    const data = await pdf(arrayBuffer);
-    return data.text;
+    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });
+    const pdf = await loadingTask.promise;
+    let fullText = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map((item: any) => item.str).join(' ');
+      fullText += pageText + '\n';
+    }
+    return fullText;
   } else if (extension === 'docx' || extension === 'doc') {
     const result = await mammoth.extractRawText({ arrayBuffer });
     return result.value;
