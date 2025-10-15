@@ -11,8 +11,8 @@ import mammoth from 'mammoth';
 import { showError } from '@/utils/toast';
 
 // Setup PDF.js worker. This is required for it to work in the browser.
-// Hardcoding a known good version to fix the 404 error.
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.170/pdf.worker.mjs`;
+// Using a more reliable CDN (jsDelivr) with a specific version to fix the 404 error.
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.170/build/pdf.worker.mjs`;
 
 // Define the comprehensive list of roles and their core keywords
 const ROLE_KEYWORDS: { [key: string]: string[] } = {
