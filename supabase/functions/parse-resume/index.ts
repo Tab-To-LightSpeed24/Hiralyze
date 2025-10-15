@@ -1,22 +1,19 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import pdf from 'https://esm.sh/pdf-parse@1.1.1'
 import mammoth from 'https://esm.sh/mammoth@1.6.0'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS', // Explicitly allow POST
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
 serve(async (req) => {
-  // This is needed if you're planning to invoke your function from a browser.
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { 
-      headers: {
-        ...corsHeaders,
-        'Content-Length': '0', // Required by some browsers for preflight
-      }, 
-      status: 200 
+    return new Response(null, {
+      headers: corsHeaders,
+      status: 204, // Use 204 No Content for OPTIONS response
     })
   }
 
