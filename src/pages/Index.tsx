@@ -417,9 +417,11 @@ const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescrip
   const resumeContentLower = resumeContent.toLowerCase();
   const jobDescriptionLower = jobDescription.toLowerCase();
 
-  // --- Pass 1: More Robust Structure Identification ---
+  // --- NEW, MORE ROBUST PARSING LOGIC ---
+
+  // 1. Define headers and a wide range of synonyms
   const HEADER_SYNONYMS: { [key: string]: { canonical: string; synonyms: string[] } } = {
-    PROFILE: { canonical: "PROFILE", synonyms: ["profile", "summary", "objective"] },
+    PROFILE: { canonical: "PROFILE", synonyms: ["profile", "summary", "objective", "about"] },
     EDUCATION: { canonical: "EDUCATION", synonyms: ["education", "academic qualifications", "academics", "education history"] },
     SKILLS: { canonical: "SKILLS", synonyms: ["skills", "technical skills", "core competencies", "technologies", "technical proficiency"] },
     EXPERIENCE: { canonical: "EXPERIENCE", synonyms: ["experience", "work experience", "professional experience", "employment history"] },
@@ -427,39 +429,46 @@ const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescrip
     CERTIFICATIONS: { canonical: "CERTIFICATIONS", synonyms: ["certifications", "licenses & certifications", "courses"] },
     AWARDS: { canonical: "AWARDS", synonyms: ["awards", "honors & awards", "achievements"] },
   };
-
   const allSynonyms = Object.values(HEADER_SYNONYMS).flatMap(h => h.synonyms);
-  const sectionMap: { header: string; canonical: string; index: number }[] = [];
 
+  // 2. Find all potential section headers and their locations in the text
+  const sectionBoundaries: { canonical: string; index: number; headerLength: number }[] = [];
   Object.values(HEADER_SYNONYMS).forEach(({ canonical, synonyms }) => {
-    const regex = new RegExp(`(?:^|\\n)\\s*(${synonyms.join('|')})[:\\s]*\\n`, 'ig');
+    // This regex finds headers at the start of a line, making it very robust
+    const regex = new RegExp(`^\\s*(${synonyms.join('|')})\\s*:?`, 'gim');
     let match;
-    while ((match = regex.exec(resumeContent)) != null) {
-      sectionMap.push({ header: match[1], canonical, index: match.index });
+    while ((match = regex.exec(resumeContent)) !== null) {
+        sectionBoundaries.push({
+            canonical,
+            index: match.index,
+            headerLength: match[0].length
+        });
     }
   });
-  sectionMap.sort((a, b) => a.index - b.index);
+  sectionBoundaries.sort((a, b) => a.index - b.index);
 
-  // --- Pass 2: Section-Specific Extraction ---
-  const getSectionContent = (canonicalHeader: string): string => {
-    const section = sectionMap.find(s => s.canonical === canonicalHeader);
-    if (!section) return "";
-    const currentIndex = sectionMap.findIndex(s => s.index === section.index);
-    const nextSection = sectionMap[currentIndex + 1];
-    const startIndex = section.index + section.header.length;
-    const endIndex = nextSection ? nextSection.index : resumeContent.length;
-    return resumeContent.substring(startIndex, endIndex).trim();
-  };
+  // 3. Extract the content between each header
+  const sections: { [key: string]: string } = {};
+  for (let i = 0; i < sectionBoundaries.length; i++) {
+    const current = sectionBoundaries[i];
+    const next = sectionBoundaries[i + 1];
+    const startIndex = current.index + current.headerLength;
+    const endIndex = next ? next.index : resumeContent.length;
+    const content = resumeContent.substring(startIndex, endIndex).trim();
+    // Combine content if a section (like 'Projects') appears multiple times
+    sections[current.canonical] = (sections[current.canonical] || "") + "\n" + content;
+  }
 
+  // 4. Parse the clean content from each extracted section
   const parseEntries = (text: string): string[] => {
     if (!text) return [];
     return text.split('\n')
       .map(line => line.replace(/^[•*-]\s*/, '').trim()) // Remove bullet points
-      .filter(line => line.length > 5 && line.split(' ').length > 1 && !allSynonyms.includes(line.toLowerCase().replace(':', ''))); // Filter out empty lines, short lines, and headers
+      // Filter out empty lines and lines that are just other headers
+      .filter(line => line.length > 3 && !/^\s*$/.test(line) && !allSynonyms.some(synonym => line.toLowerCase().startsWith(synonym)));
   };
 
-  // Education
-  const educationContent = getSectionContent("EDUCATION");
+  const educationContent = sections["EDUCATION"] || "";
   const education = parseEntries(educationContent);
   let resumeUGCGPA = 0;
   const cgpaMatch = educationContent.match(/CGPA\s*[:\s/]*\s*(\d\.\d+)/i);
@@ -467,13 +476,12 @@ const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescrip
     resumeUGCGPA = parseFloat(cgpaMatch[1]);
   }
 
-  // Experience & Projects
-  const experienceContent = getSectionContent("EXPERIENCE");
-  const projectsContent = getSectionContent("PROJECTS");
-  const experience = [...parseEntries(experienceContent), ...parseEntries(projectsContent)];
+  // Combine Experience and Projects into one list
+  const experienceContent = (sections["EXPERIENCE"] || "") + "\n" + (sections["PROJECTS"] || "");
+  const experience = parseEntries(experienceContent);
 
-  // Skills
-  const skillsContent = getSectionContent("SKILLS");
+  // Parse skills, ensuring headers aren't accidentally included
+  const skillsContent = sections["SKILLS"] || "";
   const explicitSkills = new Set<string>();
   if (skillsContent) {
     skillsContent.split('\n').forEach(line => {
@@ -483,10 +491,12 @@ const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescrip
       
       skillsString.split(/[,;•|]/)
         .map(s => s.trim().replace(/\.$/, ''))
-        .filter(s => s && s.length > 1 && !allSynonyms.includes(s.toLowerCase())) // Filter out empty strings and headers
+        .filter(s => s && s.length > 1 && !allSynonyms.includes(s.toLowerCase()))
         .forEach(skill => explicitSkills.add(skill));
     });
   }
+  
+  // --- END OF NEW PARSING LOGIC ---
 
   // --- Pass 3: Contextual Keyword Inference ---
   const allKeywords = new Set(Object.values(ROLE_KEYWORDS).flat());
