@@ -5,7 +5,7 @@ import { Candidate, ExperienceEntry, EducationEntry } from "@/types"; // Import 
 import { Separator } from "@/components/ui/separator";
 import { motion } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } '@/lib/utils';
+import { cn } from '@/lib/utils'; // Corrected: Added 'from' keyword
 import { useSession } from '@/components/SessionContextProvider'; // To get auth token
 import { showError } from '@/utils/toast';
 
