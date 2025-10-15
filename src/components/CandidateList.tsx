@@ -25,7 +25,7 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates }) => {
   }
 
   return (
-    <>
+    <React.Fragment>
       <motion.div
         initial="hidden"
         animate="visible"
@@ -36,7 +36,7 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates }) => {
             },
           },
         }}
-        className="grid gap-6 md:grid-cols-2 lg:grid-cols-3" // Changed back to 3 columns for compact cards
+        className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
       >
         {candidates.map((candidate, index) => (
           <CandidateCard 
@@ -52,5 +52,8 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates }) => {
         onClose={() => setSelectedCandidate(null)}
         candidate={selectedCandidate}
       />
-    </>
+    </React.Fragment>
   );
+};
+
+export default CandidateList;
