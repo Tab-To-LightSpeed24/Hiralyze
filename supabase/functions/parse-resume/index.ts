@@ -1,10 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-// Use pdfjs-dist instead of pdf-parse for better Deno compatibility
-import * as pdfjs from 'https://esm.sh/pdfjs-dist@4.5.136';
-
-// Set the worker source for pdfjs-dist
-pdfjs.GlobalWorkerOptions.workerSrc = 'https://esm.sh/pdfjs-dist@4.5.136/build/pdf.worker.mjs';
+// Use the legacy build of pdfjs-dist to avoid worker issues in Deno
+import { getDocument } from 'https://esm.sh/pdfjs-dist@4.5.136/legacy/build/pdf.mjs';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -48,14 +45,14 @@ serve(async (req) => {
     // Decode Base64 PDF data
     const pdfBuffer = Uint8Array.from(atob(resumeBase64), c => c.charCodeAt(0));
 
-    // --- Parse PDF using pdfjs-dist ---
-    const doc = await pdfjs.getDocument(pdfBuffer).promise;
+    // --- Parse PDF using the legacy build of pdfjs-dist ---
+    const doc = await getDocument(pdfBuffer).promise;
     let resumeText = '';
     for (let i = 1; i <= doc.numPages; i++) {
         const page = await doc.getPage(i);
         const content = await page.getTextContent();
         // Join all text items with a space and add a newline for each page
-        resumeText += content.items.map(item => item.str).join(' ') + '\n'; 
+        resumeText += content.items.map((item: any) => item.str).join(' ') + '\n'; 
     }
     // --- End PDF parsing ---
 
