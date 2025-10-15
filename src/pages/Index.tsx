@@ -6,9 +6,13 @@ import { Separator } from "@/components/ui/separator";
 import { motion } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from '@/lib/utils';
+import * as pdfjsLib from 'pdfjs-dist';
 import mammoth from 'mammoth';
 import { showError } from '@/utils/toast';
-import pdf from 'pdf-parse';
+
+// Setup PDF.js worker. This is required for it to work in the browser.
+// Hardcoding a known good version to fix the 404 error.
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.170/pdf.worker.mjs`;
 
 // Define the comprehensive list of roles and their core keywords
 const ROLE_KEYWORDS: { [key: string]: string[] } = {
@@ -387,8 +391,14 @@ const readFileContent = async (file: File): Promise<string> => {
   const arrayBuffer = await file.arrayBuffer();
 
   if (extension === 'pdf') {
-    const data = await pdf(arrayBuffer);
-    return data.text;
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      fullText += textContent.items.map(item => ('str' in item ? item.str : '')).join(' ') + '\n';
+    }
+    return fullText;
   } else if (extension === 'docx' || extension === 'doc') {
     const result = await mammoth.extractRawText({ arrayBuffer });
     return result.value;
@@ -405,82 +415,66 @@ const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescrip
   const resumeContentLower = resumeContent.toLowerCase();
   const jobDescriptionLower = jobDescription.toLowerCase();
 
-  // --- RE-ENGINEERED PARSING LOGIC V4 ---
-
-  const HEADER_SYNONYMS = {
-      EDUCATION: { canonical: "EDUCATION", synonyms: ["education", "academic qualifications", "academics", "education history"] },
-      SKILLS: { canonical: "SKILLS", synonyms: ["skills", "technical skills", "core competencies", "technologies", "technical proficiency", "area of interest"] },
-      EXPERIENCE: { canonical: "EXPERIENCE", synonyms: ["experience", "work experience", "professional experience", "employment history", "internship"] },
-      PROJECTS: { canonical: "PROJECTS", synonyms: ["projects", "personal projects", "academic projects"] },
-      CERTIFICATIONS: { canonical: "CERTIFICATIONS", synonyms: ["certifications", "licenses & certifications", "courses"] },
-      AWARDS: { canonical: "AWARDS", synonyms: ["awards", "honors & awards", "achievements"] },
-  };
-  const allSynonyms = Object.values(HEADER_SYNONYMS).flatMap(h => h.synonyms);
-
-  const sections: { [key: string]: string[] } = {};
-  Object.keys(HEADER_SYNONYMS).forEach(key => sections[key] = []);
-  
-  let currentSection: keyof typeof HEADER_SYNONYMS | null = null;
-  const lines = resumeContent.split('\n').filter(line => line.trim().length > 0);
-
-  for (const line of lines) {
-      const trimmedLine = line.trim();
-      const lowerLine = trimmedLine.toLowerCase().replace(/[:\s]+$/, '');
-      let isHeader = false;
-
-      // A header is a short line that matches a synonym and is not part of a sentence.
-      if (trimmedLine.split(' ').length <= 4) {
-          for (const key in HEADER_SYNONYMS) {
-              const canonical = key as keyof typeof HEADER_SYNONYMS;
-              if (HEADER_SYNONYMS[canonical].synonyms.some(syn => lowerLine.startsWith(syn))) {
-                  currentSection = canonical;
-                  isHeader = true;
-                  // If the header line also contains content (e.g., "Skills: C++, Java"), capture it.
-                  const contentAfterHeader = trimmedLine.substring(lowerLine.length).replace(/^[:\s]+/, '');
-                  if (contentAfterHeader.length > 2) {
-                      sections[currentSection].push(contentAfterHeader);
-                  }
-                  break;
-              }
-          }
+  // --- Pass 1: Structure Identification ---
+  const allKnownHeaders = [
+      "PROFILE", "SUMMARY", "EDUCATION", "SKILLS", "TECHNICAL SKILLS", "WORK EXPERIENCE", 
+      "EXPERIENCE", "PROJECTS", "PROJECT", "CERTIFICATIONS", "PUBLICATIONS", 
+      "AWARDS", "LANGUAGES", "INTERESTS"
+  ];
+  const sectionMap: { header: string; index: number }[] = [];
+  allKnownHeaders.forEach(header => {
+      const regex = new RegExp(`(?:^|\\n)\\s*${header.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}\\s*(?:\\n|$)`, 'ig');
+      let match;
+      while ((match = regex.exec(resumeContent)) != null) {
+          sectionMap.push({ header, index: match.index });
       }
-
-      if (!isHeader && currentSection) {
-          sections[currentSection].push(trimmedLine);
-      }
-  }
-
-  const parseEntries = (lines: string[]): string[] => {
-      return lines
-          .map(line => line.replace(/^[•*-]\s*/, '').trim())
-          .filter(line => line.length > 5 && !allSynonyms.some(synonym => line.toLowerCase().startsWith(synonym)));
-  };
-
-  const educationLines = sections["EDUCATION"];
-  const educationContent = educationLines.join('\n');
-  const education = parseEntries(educationLines);
-  let resumeUGCGPA = 0;
-  const cgpaMatch = educationContent.match(/(?:CGPA|gpa)\s*[:\s/]*\s*(\d\.\d+)/i);
-  if (cgpaMatch) {
-      resumeUGCGPA = parseFloat(cgpaMatch[1]);
-  }
-
-  const experienceLines = [...sections["EXPERIENCE"], ...sections["PROJECTS"]];
-  const experience = parseEntries(experienceLines);
-
-  const skillsLines = sections["SKILLS"];
-  const explicitSkills = new Set<string>();
-  skillsLines.forEach(line => {
-      const cleanedLine = line.replace(/^[•*-]\s*/, '').trim();
-      const parts = cleanedLine.split(':');
-      const skillsString = (parts.length > 1 ? parts[1] : parts[0]).trim();
-      
-      skillsString.split(/[,;•|]/)
-          .map(s => s.trim().replace(/\.$/, ''))
-          .filter(s => s && s.length > 1 && !allSynonyms.includes(s.toLowerCase()))
-          .forEach(skill => explicitSkills.add(skill));
   });
+  sectionMap.sort((a, b) => a.index - b.index);
+
+  // --- Pass 2: Section-Specific Extraction ---
+  let education: string[] = [];
+  let experience: string[] = [];
+  let explicitSkills = new Set<string>();
+  let resumeUGCGPA = 0;
+
+  const getSectionContent = (header: string): string => {
+      const section = sectionMap.find(s => s.header.toLowerCase() === header.toLowerCase());
+      if (!section) return "";
+      const currentIndex = sectionMap.findIndex(s => s.index === section.index);
+      const nextSection = sectionMap[currentIndex + 1];
+      const startIndex = section.index + section.header.length;
+      const endIndex = nextSection ? nextSection.index : resumeContent.length;
+      return resumeContent.substring(startIndex, endIndex).trim();
+  };
   
+  const parseEntries = (text: string): string[] => text.split('\n').map(line => line.replace(/•/g, '').trim()).filter(line => line.length > 2 && line.split(' ').length > 1);
+
+  // Education
+  const educationContent = getSectionContent("EDUCATION");
+  if (educationContent) {
+      education = parseEntries(educationContent);
+      const cgpaMatch = educationContent.match(/CGPA[-:\s/]*(\d+\.?\d*)/i);
+      if (cgpaMatch) resumeUGCGPA = parseFloat(cgpaMatch[1]);
+  }
+
+  // Experience & Projects
+  const workExpContent = getSectionContent("WORK EXPERIENCE") || getSectionContent("EXPERIENCE");
+  const projectsContent = getSectionContent("PROJECTS") || getSectionContent("PROJECT");
+  if (workExpContent) experience.push(...parseEntries(workExpContent));
+  if (projectsContent) experience.push(...parseEntries(projectsContent));
+
+  // Skills
+  const skillsContent = getSectionContent("SKILLS") || getSectionContent("TECHNICAL SKILLS");
+  if (skillsContent) {
+      skillsContent.split('\n').forEach(line => {
+          const cleanedLine = line.replace(/•/g, '').trim();
+          const parts = cleanedLine.split(':');
+          const skillsString = (parts.length > 1 ? parts[1] : parts[0]).trim();
+          skillsString.split(/, |,|; /).map(s => s.trim().replace(/\.$/, '')).filter(Boolean).forEach(skill => explicitSkills.add(skill));
+      });
+  }
+
+  // --- Pass 3: Contextual Keyword Inference ---
   const allKeywords = new Set(Object.values(ROLE_KEYWORDS).flat());
   const inferredSkills = new Set<string>();
   allKeywords.forEach(keyword => {
@@ -490,8 +484,10 @@ const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescrip
       }
   });
 
+  // --- Pass 4: Data Consolidation ---
   const finalSkills = Array.from(new Set([...explicitSkills, ...inferredSkills]));
 
+  // --- JD Parsing and Matching ---
   let jdPrimaryRole: string | undefined;
   let jdPrimaryRoleKeywords: string[] = [];
   for (const role in ROLE_KEYWORDS) {
@@ -503,9 +499,10 @@ const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescrip
     }
   }
   const explicitJdKeywords = (jobDescription.match(/(?:skills|requirements|proficient in):?\s*([\s\S]+)/i)?.[1]?.split(/,|\n|•/).map(s => s.trim().toLowerCase()).filter(Boolean)) || [];
-  const jdKeywordsToMatch = new Set<string>([...jdPrimaryRoleKeywords, ...explicitJdsKeywords]);
+  const jdKeywordsToMatch = new Set<string>([...jdPrimaryRoleKeywords, ...explicitJdKeywords]);
   const finalJdKeywords = Array.from(jdKeywordsToMatch);
 
+  // --- Suggested Role (based on inferred skills) ---
   let bestRoleMatchCount = 0;
   let suggestedRole = "General Candidate";
   for (const role in ROLE_KEYWORDS) {
@@ -519,6 +516,7 @@ const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescrip
       }
   }
 
+  // --- Scoring & Justification ---
   let matchScore = 0;
   let justification = "";
   let scoreReasoning: string[] = [];
@@ -544,7 +542,7 @@ const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescrip
       if (jdCriteria.minUGCGPA > 0 && resumeUGCGPA > 0 && resumeUGCGPA < jdCriteria.minUGCGPA) {
           scoreReasoning.push(`UG CGPA (${resumeUGCGPA}) is below required ${jdCriteria.minUGCGPA}.`); baseScore -= 3;
       }
-      if (jdCriteria.zeroExperienceCandidatesOnly && experience.length > 0 && experience.some(exp => !exp.toLowerCase().includes("project"))) {
+      if (jdCriteria.zeroExperienceCandidatesOnly && experience.some(exp => !exp.toLowerCase().includes("project"))) {
           scoreReasoning.push("Candidate has professional experience, but job requires zero experience."); baseScore -= 4;
       }
 
@@ -582,11 +580,12 @@ const Index = () => {
       const processedCandidatesPromises = files.map(async (file) => {
         try {
           const resumeContent = await readFileContent(file);
+          // The parsing function is now operating on REAL data
           return analyzeResume(file.name, resumeContent, jobDescription); 
         } catch (error) {
           console.error(`Failed to process file ${file.name}:`, error);
           showError(`Could not read or process ${file.name}. It might be corrupted or an unsupported format.`);
-          return null;
+          return null; // Return null for failed files
         }
       });
 
