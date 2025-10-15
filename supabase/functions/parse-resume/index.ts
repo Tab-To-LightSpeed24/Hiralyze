@@ -1,7 +1,11 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 // Use the legacy build of pdfjs-dist to avoid worker issues in Deno
-import { getDocument } from 'https://esm.sh/pdfjs-dist@4.5.136/legacy/build/pdf.mjs';
+import { getDocument, GlobalWorkerOptions } from 'https://esm.sh/pdfjs-dist@4.5.136/legacy/build/pdf.mjs';
+
+// The legacy build of pdf.js does not use a worker, but it still checks for this property.
+// We set it to a dummy value to satisfy the library's internal check.
+GlobalWorkerOptions.workerSrc = 'pdf.worker.js';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
