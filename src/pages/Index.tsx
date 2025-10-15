@@ -10,9 +10,10 @@ import * as pdfjsLib from 'pdfjs-dist';
 import mammoth from 'mammoth';
 import { showError } from '@/utils/toast';
 
-// Setup PDF.js worker. This is required for it to work in the browser.
-// Hardcoding a known good version to fix the 404 error.
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.170/pdf.worker.mjs`;
+// Import the worker file directly and let the bundler (Vite) handle the path.
+// This is the robust, correct way to avoid CDN and 404 errors.
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 // Define the comprehensive list of roles and their core keywords
 const ROLE_KEYWORDS: { [key: string]: string[] } = {
@@ -169,7 +170,7 @@ const ROLE_KEYWORDS: { [key: string]: string[] } = {
     "GCP (GKE, Cloud Run, Pub/Sub, BigQuery)",
     "Terraform", "Ansible", "Packer", "CloudFormation",
     "Jenkins", "GitHub Actions", "GitLab CI", "CircleCI",
-    "Prometheus", "Grafana", "ELK Stack", "Loki",
+    "Prometheus",. I've updated the PDF worker to load locally, which should finally resolve the persistent 404 error.
     "Load Balancing", "Nginx", "HAProxy",
     "Networking", "DNS", "VPC", "Subnets", "Firewalls",
     "Monitoring", "Logging", "Auto Scaling",
