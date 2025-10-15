@@ -11,10 +11,8 @@ import { showError } from '@/utils/toast';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Setup worker for pdfjs-dist. This is a required step.
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.js',
-  import.meta.url,
-).toString();
+// Using a CDN for the worker to avoid bundling issues with Vite.
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 // Define the comprehensive list of roles and their core keywords
 const ROLE_KEYWORDS: { [key: string]: string[] } = {
