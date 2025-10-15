@@ -4,7 +4,7 @@ import CandidateList from "@/components/CandidateList";
 import { Candidate } from "@/types";
 import { Separator } from "@/components/ui/separator";
 import { motion } from "framer-motion";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; // Import Tabs components
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from '@/lib/utils';
 
 // Define the comprehensive list of roles and their core keywords
@@ -519,7 +519,6 @@ const Index = () => {
     }
 
     education = Array.from(extractedEducationDetails);
-    if (education.length === 0) education.push("No specific education identified");
 
 
     // --- Skill Extraction ---
@@ -589,7 +588,6 @@ const Index = () => {
     }
 
     skills = Array.from(identifiedSkills);
-    if (skills.length === 0) skills.push("No specific skills identified");
 
     // --- Experience Parsing ---
     const tempExperience: string[] = [];
@@ -643,7 +641,6 @@ const Index = () => {
     }
 
     experience = tempExperience;
-    if (experience.length === 0) experience.push("No specific experience identified");
 
 
     // --- New Strict Shortlisting Logic ---
@@ -795,7 +792,7 @@ const Index = () => {
       } else {
         scoreReasoning.push(`No specific experience/project keywords from JD (${jdPrimaryRole ? 'inferred' : 'explicit'}) matched in resume.`);
       }
-    } else if (experience.length > 0 && experience[0] !== "No specific experience identified") {
+    } else if (experience.length > 0) { // Removed the "No specific experience identified" check
         baseScore += 1;
         scoreReasoning.push("Resume contains project details, but no specific experience keywords were provided in the JD or inferred from role.");
     } else {
@@ -806,7 +803,7 @@ const Index = () => {
     let matchedSkillsCount = 0;
     const jdSkillsKeywordsToUse = jdPrimaryRole ? jdKeywordsToMatch : jdCriteria.requiredSkillsKeywords; // Use flattened keywords if primary role exists
 
-    if (jdSkillsKeywordsToUse.length > 0 && skills.length > 0 && skills[0] !== "No specific skills identified") {
+    if (jdSkillsKeywordsToUse.length > 0 && skills.length > 0) { // Removed the "No specific skills identified" check
       jdSkillsKeywordsToUse.forEach(jdSkill => {
         if (skills.some(resSkill => resSkill.toLowerCase().includes(jdSkill))) {
           matchedSkillsCount++;
@@ -818,7 +815,7 @@ const Index = () => {
       } else {
         scoreReasoning.push(`No specific skills from JD (${jdPrimaryRole ? 'inferred' : 'explicit'}) matched in resume.`);
       }
-    } else if (skills.length > 0 && skills[0] !== "No specific skills identified") {
+    } else if (skills.length > 0) { // Removed the "No specific skills identified" check
         baseScore += 1;
         scoreReasoning.push("Resume contains specific skills, but no specific skills keywords were provided in the JD or inferred from role.");
     } else {
@@ -892,160 +889,41 @@ const Index = () => {
     };
   };
 
-  const handleProcessResumes = (jobDescription: string, files: File[]) => {
+  const handleProcessResumes = async (jobDescription: string, files: File[]) => {
     setProcessing(true);
     console.log("Job Description:", jobDescription);
     console.log("Resumes to process:", files);
 
-    // Simulate reading file content (for demonstration, we'll use a hardcoded string for the specific test case)
-    const mockResumeContentMap: { [key: string]: string } = {
-      "testing.pdf": "Senior Software Engineer with 6 years experience. Proficient in React.js, Node.js, and AWS cloud services. Proven track record of solving complex technical challenges. Education: B.S. in Computer Science, 8.5 CGPA. 12th grade: 90%. 10th grade: 85%.",
-      "another_resume.pdf": "Junior Developer with 2 years experience in JavaScript. Education: B.S. in Information Technology, 6.5 CGPA. 12th grade: 70%.",
-      "no_education.pdf": "Experienced Project Manager with 10 years in agile environments. Led multiple successful product launches.",
-      "poorly_formatted_edu.pdf": "Project Lead. Experience in team management. Education section: University of XYZ, Graduated 2010. No specific grades mentioned.",
-      "Kaushik_resume_8.pdf": `Education
-Vellore Institute of Technology, B.Tech. Computer Science | CGPA: 7.75 Sept 2022 – May 2026
-Chennai Public School | Grade 12: 91.0% | Grade 10: 94.6% 2022 | 2020
-Technical Skills
-• Languages: Python, TypeScript, SQL, C++, Deno, Java
-• Full-Stack Development: React.js, Vite, Tailwind CSS, shadcn/ui, FastAPI, PostgreSQL, Supabase,
-SQLAlchemy, REST APIs
-• AI/ML: PyTorch, TensorFlow, Hugging Face Transformers (ROBERTa), Scikit-learn, OpenAI API, NumPy,
-Panda
-• Computer Vision & Audio: OpenCV, Librosa, MFCC, ResNet18, CUDA/GPU
-• Tools & Collaboration: Git, Postman, Figma, Discord.py
-Projects
-CommunityClara AI - Discord Moderation Platform Link to Github
-• Engineered a full-stack, privacy-first Discord moderation platform using a Python (FastAPI) backend,
-PostgreSQL database, and React dashboard. The platform leverages Hugging Face Transformers for content
-analysis and implements a novel Federated Learning architecture to ensure user data never leaves the local
-server.
-• Implemented Differential Privacy to mathematically guarantee user anonymity during collaborative model
-training, leading to a 75%+ reduction in harmful content and a 60% decrease in moderator workload.
-Achieved high performance with <500ms message analysis time and real-time dashboard updates with
-<100ms latency.
-Multimodal Emotion Recognition System (ERIC)
-• Built deep learning system achieving 74.11% accuracy on 13,708 video clips for 7-emotion classification
-using RoBERTa (text), ResNet18 (visual), and MFCC (audio) features with late fusion architecture.
-• Optimized training pipeline reducing processing time by 40% through batch optimization and implemented
-real-time inference capabilities.
-TradeRadar – Trading Strategy & Analytics Platform Link to Website
-• Developed a full-stack trading analytics platform where users build custom market strategies, receive
-real-time Telegram alerts, and log trades in a journal. Built the responsive UI with React, TypeScript, Vite,
-shadcn/ui, and Tailwind CSS.
-• Architected a secure, serverless backend using Supabase, leveraging Postgres with Row Level Security for
-data isolation and Deno-based Edge Functions. The core includes a strategy-engine processing live market
-data from the Twelve Data API and an AI assistant powered by a natural language command-parser.`,
-      "Resume Aravind.pdf": `ARAVIND SA
-| saaravind16@gmail.com | LinkedIn
-PROFILESoftware skills - Verilog HDL, MATLAB, and Simulation - Multisim.Programming Skills - Python, C, C++, HTML, CSS, Java, JavaScript, ReactJS. Soft Skills - Project Management, Team Work, Communication, Leadership.Volunteer experience - Technical and cultural fest organizing committee.SKILLS Vellore Institute of Technology Vellore, Tamilnadu
-B. Tech, Electronics and Communication Engineering February 2025-Present CGPA-8.00.SBOA School & Junior College Chennai, TamilnaduAll Indian Senior School Certificate Examination May - 2022Percentage : 85.0%SBOA School & Junior College Chennai, TamilnaduAll Indian Secondary School Examination May - 2020Percentage : 86.4%Dedicated third-year Electronics and Communication Engineering student with a stronginterest in core ECE technologies. Passionate about exploring digital marketing andcommitted to continuous learning and innovation in the tech industry.EDUCATIONPROJECTCLUBS AND CHAPTERS Senior Core Community Member in Tamil Literary Association (TLA) VIT and have organized and volunteered in many events.CERTIFICATESThe Complete Python Bootcamp From Zero to Hero in Python, Udemy.Electronics Foundations - Semiconductor devices, LinkedIn.Project Management Foundations, LinkedIn.Ethical Hacking: Vulnerability Analysis, LinkedIn. Introduction to Artificial Intelligence, LinkedIn.Pollin AIDeveloped an AI system to monitor pollinator activity (e.g., bees, butterflies) inagricultural environments.Applied object detection through the Yolo v8 algorithm and CNN.Using LM386 as a comparator circuit for detection and using an RF amplifier,VCO, and a tuning circuit for jamming purposes.Mobile jammer and detector device (Multisim) Noise canceling headphones (Matlab) Detection of noise generated using a sample input and removing any noiseabove voice frequency using adaptive filtering algorithms to provide noise-cancelled output.`,
-      "Vishakan_latest_August_resume.pdf": `SKILLS
-• Programming: Python, Java, SQL, R, Bash.
-• Cloud Computing: Amazon Web Services (AWS).
-• ML, DL&AI: Scikit-learn, TensorFlow, Pytorch, Transformers (BERT, RoBERTa), Vision Transformers (ViT).
-• Data Handling and Visualization: Pandas, NumPy, Tableau, Data Cleaning
-• Languages: English, Tamil, Hindi (Basic), French (Basic)
-EDUCATION
-Vellore Institute of Technology, Vellore 2022 - Present
-• B. Tech in Computer Science Engineering Vellore, India
-• CGPA: 8.45/10
-Chennai Public School 2020 - 2022
-• Central Board of Secondary Education (CBSE) Chennai, India
-• Grade 12: 94.8%
-• Grade 10: 94.6%
-WORK EXPERIENCE
-Machine Learning Intern
-Salcomp India Pvt Ltd, Chennai, India June 2025 – July 2025
-• Prototyped machine learning solutions to predict industrial equipment failures using real-time MySQL data.
-• Developed customized LSTM-based models to forecast next failure events and automate risk alerts.
-• Integrated ML models into a Flask web app to support intelligent decision-making.
-CERTIFICATIONS
-• Amazon Web Services: Holder of AWS Cloud Practitioner Certification.
-• IBM AI Engineer: Achieved IBM AI Engineering Professional Certification.
-• My Captain Data Analytics: Earned external certification on Data Analytics on My Captain platform with LOR
-PROJECTS
-Multimodal Emotion Recognition System (MELD Dataset) using Fusion
-• Achieved 67% accuracy on 7-emotion classification from 13,708 videos by fusing text (RoBERTa), audio (MFCC), and visual (ResNet18) features, outperforming unimodal baselines by 86%.
-• Optimized training pipeline with late fusion architecture, reducing convergence time by 40%
-Quantum vs Classical Maze Pathfinding
-• Designed a comparative maze pathfinding framework implementing classical A search and quantum Grover’s algorithm.
-• Demonstrated theoretical speedup of Grover’s algorithm over A* in complex maze environments, using Qiskit simulations and analysed scaling behaviour along with limitations.
-Dynamic Traffic Route Planner with Live Simulation
-• Developed a Python-based routing engine with Dijkstra, A*, and real`,
-      "SANTHOSH_Resume.pdf": `SANTHOSH KUMAR
-+91 9361610070 | santhoshkumar.s.2022@vitstudent.ac.in | Chennai, India | LinkedIn
-EDUCATION
-Vellore Institute of Technology, Vellore
-B.Tech in Computer Science and Engineering | CGPA: 8.00/10
-Chennai Public School
-Grade 12: 90.0% | Grade 10: 92.0%
-SKILLS
-Programming Languages: Python, Java, C, C++
-Web Technologies: HTML, CSS, JavaScript, React.js, Node.js, Express.js, MongoDB, SQL
-Tools & Platforms: Git, GitHub, VS Code, Postman, Docker
-Machine Learning: Scikit-learn, TensorFlow, Keras, Pandas, NumPy
-PROJECTS
-E-commerce Website (Full-Stack)
-• Developed a responsive e-commerce platform using MERN stack (MongoDB, Express.js, React.js, Node.js).
-• Implemented user authentication, product catalog, shopping cart, and payment gateway integration.
-• Designed and managed database schema with MongoDB, ensuring data integrity and scalability.
-AI-Powered Chatbot
-• Built a chatbot using Python and TensorFlow, capable of understanding natural language queries.
-• Integrated with a knowledge base to provide accurate and relevant responses to user questions.
-• Achieved 85% accuracy in intent recognition and entity extraction.
-WORK EXPERIENCE
-Software Development Intern | Tech Solutions Inc. | Chennai, India
-June 2024 – August 2024
-• Collaborated with a team to develop and maintain web applications using React.js and Node.js.
-• Contributed to the design and implementation of RESTful APIs for various features.
-• Participated in code reviews and agile development sprints.
-CERTIFICATIONS
-• AWS Certified Cloud Practitioner
-• Google IT Support Professional Certificate`,
-      "ResumeSanjay_Final.pdf": `SANJAY KUMAR
-+91 9876543210 | sanjaykumar.s.2022@vitstudent.ac.in | Bangalore, India | LinkedIn
-EDUCATION
-Vellore Institute of Technology, Vellore
-B.Tech in Electronics and Communication Engineering | CGPA: 8.50/10
-Chennai Public School
-Grade 12: 95.0% | Grade 10: 93.0%
-SKILLS
-Programming Languages: C, C++, Python, MATLAB
-Embedded Systems: Microcontrollers (Arduino, ESP32), RTOS, IoT Protocols (MQTT, CoAP)
-Hardware: PCB Design, Circuit Analysis, Soldering
-Tools & Platforms: Git, GitHub, VS Code, Proteus, Simulink
-PROJECTS
-Smart Home Automation System (IoT)
-• Designed and implemented an IoT-based smart home system using ESP32 and MQTT protocol.
-• Developed firmware in C++ to control smart devices (lights, fans) via a mobile application.
-• Integrated with a cloud platform for remote monitoring and control.
-Automated Irrigation System
-• Built an automated irrigation system using Arduino, soil moisture sensors, and a water pump.
-• Programmed in C to monitor soil moisture levels and activate irrigation as needed.
-• Improved water efficiency by 30% compared to manual irrigation.
-WORK EXPERIENCE
-Embedded Systems Intern | ElectroTech Solutions | Bangalore, India
-July 2024 – September 2024
-• Assisted in the development of embedded firmware for industrial control systems.
-• Performed hardware testing and debugging of prototype boards.
-• Gained experience with real-time operating systems (RTOS) and communication protocols.
-CERTIFICATIONS
-• Certified Embedded Systems Professional
-• IoT Fundamentals - Cisco Networking Academy`,
-      // Add other mock resume contents here for different test cases if needed
-    };
+    const readFilesPromises = files.map(file => {
+      return new Promise<[string, string]>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          if (e.target?.result) {
+            resolve([file.name, e.target.result as string]);
+          } else {
+            reject(new Error(`Failed to read file: ${file.name}`));
+          }
+        };
+        reader.onerror = (error) => reject(error);
+        reader.readAsText(file); // Read as text
+      });
+    });
 
-    setTimeout(() => {
-      const allProcessedCandidates: Candidate[] = files.map(file => {
-        const resumeContent = mockResumeContentMap[file.name] || `Content of ${file.name} is not mocked.`;
-        return mockAnalyzeResume(file.name, resumeContent, jobDescription);
+    try {
+      const fileContents = await Promise.all(readFilesPromises);
+
+      const allProcessedCandidates: Candidate[] = fileContents.map(([fileName, content]) => {
+        return mockAnalyzeResume(fileName, content, jobDescription);
       });
 
       setShortlistedCandidates(allProcessedCandidates.filter(candidate => candidate.matchScore > 1));
       setNotShortlistedCandidates(allProcessedCandidates.filter(candidate => candidate.matchScore === 1));
+    } catch (error) {
+      console.error("Error processing resumes:", error);
+      // You might want to show an error toast here
+    } finally {
       setProcessing(false);
-    }, 1500); // Simulate network delay
+    }
   };
 
   const containerVariants = {
@@ -1070,7 +948,7 @@ CERTIFICATIONS
       animate="visible"
       className="flex flex-col items-center p-4 md:p-8 bg-background text-foreground min-h-[calc(100vh-64px)]"
     >
-      <div className="w-full max-w-6xl space-y-8"> {/* Changed max-w-4xl to max-w-6xl */}
+      <div className="w-full max-w-6xl space-y-8">
         <motion.div variants={itemVariants}>
           <ResumeUploadForm onProcessResumes={handleProcessResumes} />
         </motion.div>
