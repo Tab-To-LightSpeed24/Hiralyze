@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from '@/lib/utils';
 import mammoth from 'mammoth';
 import { showError } from '@/utils/toast';
-import pdf from 'pdf-parse';
+import * as pdfParse from 'pdf-parse';
 
 // Define the comprehensive list of roles and their core keywords
 const ROLE_KEYWORDS: { [key: string]: string[] } = {
@@ -387,6 +387,8 @@ const readFileContent = async (file: File): Promise<string> => {
   const arrayBuffer = await file.arrayBuffer();
 
   if (extension === 'pdf') {
+    // This is the fix for the CJS/ESM import issue with pdf-parse
+    const pdf = (pdfParse as any).default || pdfParse;
     const data = await pdf(arrayBuffer);
     return data.text;
   } else if (extension === 'docx' || extension === 'doc') {
