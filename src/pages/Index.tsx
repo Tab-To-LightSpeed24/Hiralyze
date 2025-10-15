@@ -6,14 +6,8 @@ import { Separator } from "@/components/ui/separator";
 import { motion } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from '@/lib/utils';
-import * as pdfjsLib from 'pdfjs-dist';
-import mammoth from 'mammoth';
 import { showError } from '@/utils/toast';
-
-// Import the worker file directly and let the bundler (Vite) handle the path.
-// This is the robust, correct way to avoid CDN and 404 errors.
-import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+import { Docling } from 'docling'; // Import Docling
 
 // Define the comprehensive list of roles and their core keywords
 const ROLE_KEYWORDS: { [key: string]: string[] } = {
@@ -388,26 +382,12 @@ const ROLE_KEYWORDS: { [key: string]: string[] } = {
 };
 
 const readFileContent = async (file: File): Promise<string> => {
-  const extension = file.name.split('.').pop()?.toLowerCase();
-  const arrayBuffer = await file.arrayBuffer();
-
-  if (extension === 'pdf') {
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    let fullText = '';
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      fullText += textContent.items.map(item => ('str' in item ? item.str : '')).join(' ') + '\n';
-    }
-    return fullText;
-  } else if (extension === 'docx' || extension === 'doc') {
-    const result = await mammoth.extractRawText({ arrayBuffer });
-    return result.value;
-  } else if (extension === 'txt') {
-    const decoder = new TextDecoder('utf-8');
-    return decoder.decode(arrayBuffer);
-  } else {
-    throw new Error(`Unsupported file type: .${extension}`);
+  try {
+    const textContent = await Docling.parse(file);
+    return textContent;
+  } catch (error) {
+    console.error(`Error parsing file with Docling: ${file.name}`, error);
+    throw new Error(`Failed to parse file ${file.name} using Docling.`);
   }
 };
 
