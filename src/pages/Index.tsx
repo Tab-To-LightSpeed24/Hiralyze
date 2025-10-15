@@ -552,7 +552,7 @@ const Index = () => {
     return candidate;
   };
 
-  const handleProcessResumes = async (jobDescription: string, resumeTexts: { fileName: string, text: string }[]): Promise<Candidate[]> => {
+  const handleProcessResumes = async (jobDescription: string, resumeFilesData: { fileName: string, arrayBuffer: ArrayBuffer }[]): Promise<Candidate[]> => {
     setProcessing(true);
     const processedCandidates: Candidate[] = [];
     const authToken = session?.access_token;
@@ -563,16 +563,19 @@ const Index = () => {
       return [];
     }
 
-    for (const resumeData of resumeTexts) {
+    for (const resumeData of resumeFilesData) {
       try {
+        // Convert ArrayBuffer to Base64 string
+        const base64Resume = btoa(String.fromCharCode(...new Uint8Array(resumeData.arrayBuffer)));
+
         const response = await fetch('https://dcxzxknlizesuengfhia.supabase.co/functions/v1/parse-resume', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${authToken}`,
-            'Content-Type': 'application/json', // Now sending JSON
+            'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ // Send resumeText and jobDescription as JSON
-            resumeText: resumeData.text,
+          body: JSON.stringify({
+            resumeBase64: base64Resume, // Send Base64 encoded PDF
             jobDescription: jobDescription,
             resumeFileName: resumeData.fileName,
           }),
