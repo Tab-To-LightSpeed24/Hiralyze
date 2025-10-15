@@ -1,10 +1,10 @@
 import React, { useEffect } from 'react';
+import { Auth } from '@supabase/auth-ui-react';
+import { ThemeSupa } from '@supabase/auth-ui-shared';
+import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/components/SessionContextProvider';
 import { motion } from 'framer-motion';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import LoginForm from '@/components/LoginForm';
-import SignUpForm from '@/components/SignUpForm';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -17,49 +17,25 @@ const Login: React.FC = () => {
   }, [session, navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
       <motion.div 
-        className="flex w-full max-w-4xl h-auto min-h-[600px] md:h-[600px] rounded-lg shadow-2xl overflow-hidden bg-background border border-primary/20 flex-col md:flex-row"
+        className="flex w-full max-w-4xl h-[600px] rounded-lg shadow-2xl overflow-hidden bg-white"
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5 }}
       >
         {/* Left Panel */}
-        <div className="hidden md:flex flex-col justify-center w-full md:w-1/2 p-12 text-foreground bg-background border-r border-primary/30 relative overflow-hidden">
-          <motion.div 
-            className="absolute -top-10 -left-10 w-48 h-48 bg-primary/10 rounded-full shadow-neon-glow"
-            animate={{ 
-              y: [0, -15, 0],
-              rotate: [0, 10, 0],
-            }}
-            transition={{
-              duration: 8,
-              ease: "easeInOut",
-              repeat: Infinity,
-            }}
-          />
-          <motion.div 
-            className="absolute -bottom-16 -right-10 w-40 h-40 bg-primary/10 rounded-lg transform rotate-45 shadow-neon-glow"
-            animate={{ 
-              y: [0, 15, 0],
-              x: [0, -10, 0],
-              rotate: [45, 55, 45],
-            }}
-            transition={{
-              duration: 10,
-              ease: "easeInOut",
-              repeat: Infinity,
-              delay: 1,
-            }}
-          />
+        <div className="hidden md:flex flex-col justify-center w-1/2 p-12 text-white bg-gradient-to-br from-purple-600 to-pink-500 relative overflow-hidden">
+          <div className="absolute -top-10 -left-10 w-48 h-48 bg-white/10 rounded-full"></div>
+          <div className="absolute -bottom-16 -right-10 w-40 h-40 bg-white/10 rounded-lg transform rotate-45"></div>
           <motion.div 
             className="relative z-10"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.3, duration: 0.5 }}
           >
-            <h1 className="text-4xl font-bold mb-4 text-primary text-neon-glow">Welcome to Hiralyze</h1>
-            <p className="text-lg text-muted-foreground">
+            <h1 className="text-4xl font-bold mb-4">Welcome to Hiralyze</h1>
+            <p className="text-lg text-purple-200">
               Intelligently parse resumes and match them against job descriptions to find the perfect candidate, faster.
             </p>
           </motion.div>
@@ -67,18 +43,41 @@ const Login: React.FC = () => {
 
         {/* Right Panel */}
         <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-center">
-          <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 bg-secondary/30 border border-primary/50">
-              <TabsTrigger value="login" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-neon-glow">Login</TabsTrigger>
-              <TabsTrigger value="signup" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-neon-glow">Sign Up</TabsTrigger>
-            </TabsList>
-            <TabsContent value="login">
-              <LoginForm />
-            </TabsContent>
-            <TabsContent value="signup">
-              <SignUpForm />
-            </TabsContent>
-          </Tabs>
+          <h2 className="text-2xl font-bold text-gray-700 mb-6 text-center">USER LOGIN</h2>
+          <Auth
+            supabaseClient={supabase}
+            providers={[]}
+            appearance={{
+              theme: ThemeSupa,
+              variables: {
+                default: {
+                  colors: {
+                    brand: '#8B5CF6', // purple-500
+                    brandAccent: '#EC4899', // pink-500
+                    brandButtonText: 'white',
+                    defaultButtonBackground: 'white',
+                    defaultButtonBackgroundHover: '#f3f4f6', // gray-100
+                    defaultButtonBorder: '#d1d5db', // gray-300
+                    defaultButtonText: '#374151', // gray-700
+                    inputBackground: '#f3f4f6', // gray-100
+                    inputBorder: '#d1d5db', // gray-300
+                    inputBorderHover: '#a5b4fc', // indigo-300
+                    inputBorderFocus: '#8B5CF6', // purple-500
+                    inputText: '#111827', // gray-900
+                    inputLabelText: '#4b5563', // gray-600
+                    inputPlaceholder: '#9ca3af', // gray-400
+                  },
+                  radii: {
+                    borderRadiusButton: '8px',
+                    buttonBorderRadius: '8px',
+                    inputBorderRadius: '8px',
+                  },
+                },
+              },
+            }}
+            theme="light"
+            redirectTo={window.location.origin}
+          />
         </div>
       </motion.div>
     </div>
