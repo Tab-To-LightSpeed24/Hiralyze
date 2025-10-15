@@ -6,6 +6,7 @@ import { Separator } from "@/components/ui/separator";
 import { motion } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 
 // Define the comprehensive list of roles and their core keywords
 const ROLE_KEYWORDS: { [key: string]: string[] } = {
@@ -399,24 +400,6 @@ const Index = () => {
     const resumeContentLower = resumeContent.toLowerCase();
     const jobDescriptionLower = jobDescription.toLowerCase();
 
-    const fileExtension = resumeFileName.split('.').pop()?.toLowerCase();
-
-    // Handle unparseable binary files (PDF, DOCX)
-    if (fileExtension === 'pdf' || fileExtension === 'doc' || fileExtension === 'docx') {
-      return {
-        id: `cand-${Date.now()}-${Math.random()}`,
-        name: candidateName,
-        email: `${candidateName.toLowerCase()}@example.com`,
-        skills: [], // Empty
-        experience: [], // Empty
-        education: [], // Empty
-        matchScore: 1, // Cannot be shortlisted if not parsed
-        justification: `This candidate, ${candidateName}, received a score of 1/10. Reasoning: The resume file (${resumeFileName}) is a binary format (PDF/DOCX) which cannot be parsed into readable text by the frontend application. Please upload a plain text (.txt) resume for full analysis.`,
-        resumeFileName: resumeFileName,
-        suggestedRole: "N/A",
-      };
-    }
-
     // --- Parsing logic for plain text files (.txt) ---
     const allKnownHeaders = ["EDUCATION", "WORK EXPERIENCE", "EXPERIENCE", "PROJECTS", "SKILLS", "TECHNICAL SKILLS", "CERTIFICATIONS", "PROFILE", "CLUBS AND CHAPTERS"];
 
@@ -489,126 +472,84 @@ const Index = () => {
     let resumeUGCGPA = 0;
     let extractedEducationDetails: Set<string> = new Set();
 
-    // Specific parsing for Aravind's education which is tightly coupled after SKILLS
-    if (resumeFileName === "Resume Aravind.pdf") { // This specific parsing is for a PDF, which will now be skipped.
-        // This block will effectively be skipped due to the fileExtension check above.
-        // Keeping it here for context if .txt version of Aravind's resume were to be used.
-        const aravindEduMatch = resumeContent.match(/(Vellore Institute of Technology Vellore, Tamilnadu\s*B\.? Tech, Electronics and Communication Engineering.*?CGPA-?\s*(\d+\.?\d*).*?SBOA School & Junior College Chennai, Tamilnadu.*?All Indian Senior School Certificate Examination.*?Percentage :?\s*(\d+\.?\d*)%.*?SBOA School & Junior College Chennai, Tamilnadu.*?All Indian Secondary School Examination.*?Percentage :?\s*(\d+\.?\d*)%)/is);
-        if (aravindEduMatch) {
-            extractedEducationDetails.add(aravindEduMatch[1].trim());
-            resumeUGCGPA = parseFloat(aravindEduMatch[2]);
-            resume12thPercentage = parseFloat(aravindEduMatch[3]);
-            resume10thPercentage = parseFloat(aravindEduMatch[4]);
-        }
-    } else {
-        // General parsing for other resumes
-        const vitFullMatch = resumeContent.match(/(Vellore Institute of Technology.*?B\.?Tech.*?Computer Science and Engineering.*?CGPA[-:]?\s*(\d+\.?\d*))/i);
-        if (vitFullMatch) {
-            extractedEducationDetails.add(vitFullMatch[1].trim());
-            resumeUGCGPA = parseFloat(vitFullMatch[2]);
-        }
+    // General parsing for other resumes
+    const vitFullMatch = resumeContent.match(/(Vellore Institute of Technology.*?B\.?Tech.*?Computer Science and Engineering.*?CGPA[-:]?\s*(\d+\.?\d*))/i);
+    if (vitFullMatch) {
+        extractedEducationDetails.add(vitFullMatch[1].trim());
+        resumeUGCGPA = parseFloat(vitFullMatch[2]);
+    }
 
-        const sboa12FullMatch = resumeContent.match(/(Chennai Public School.*?Grade 12:?\s*(\d+\.?\d*)%)/i);
-        if (sboa12FullMatch) {
-            const percentage = sboa12FullMatch[2];
-            if (percentage) {
-                resume12thPercentage = parseFloat(percentage);
-                extractedEducationDetails.add(`Chennai Public School, Grade 12: ${resume12thPercentage}%`);
-            }
-        }
-
-        const sboa10FullMatch = resumeContent.match(/(Chennai Public School.*?Grade 10:?\s*(\d+\.?\d*)%)/i);
-        if (sboa10FullMatch) {
-            const percentage = sboa10FullMatch[2];
-            if (percentage) {
-                resume10thPercentage = parseFloat(percentage);
-                extractedEducationDetails.add(`Chennai Public School, Grade 10: ${resume10thPercentage}%`);
-            }
-        }
-
-        if (resumeUGCGPA === 0) {
-            const generalCgpaMatch = resumeContent.match(/CGPA[-:]?\s*(\d+\.?\d*)/i);
-            if (generalCgpaMatch) resumeUGCGPA = parseFloat(generalCgpaMatch[1]);
-        }
-
-        if (extractedEducationDetails.size === 0) {
-            const educationSectionContent = extractContentBetween(resumeContent, "EDUCATION", allKnownHeaders.filter(h => h !== "EDUCATION"));
-            if (educationSectionContent) {
-                parseEducationEntries(educationSectionContent).forEach(line => extractedEducationDetails.add(line));
-            }
+    const sboa12FullMatch = resumeContent.match(/(Chennai Public School.*?Grade 12:?\s*(\d+\.?\d*)%)/i);
+    if (sboa12FullMatch) {
+        const percentage = sboa12FullMatch[2];
+        if (percentage) {
+            resume12thPercentage = parseFloat(percentage);
+            extractedEducationDetails.add(`Chennai Public School, Grade 12: ${resume12thPercentage}%`);
         }
     }
 
+    const sboa10FullMatch = resumeContent.match(/(Chennai Public School.*?Grade 10:?\s*(\d+\.?\d*)%)/i);
+    if (sboa10FullMatch) {
+        const percentage = sboa10FullMatch[2];
+        if (percentage) {
+            resume10thPercentage = parseFloat(percentage);
+            extractedEducationDetails.add(`Chennai Public School, Grade 10: ${resume10thPercentage}%`);
+        }
+    }
+
+    if (resumeUGCGPA === 0) {
+        const generalCgpaMatch = resumeContent.match(/CGPA[-:]?\s*(\d+\.?\d*)/i);
+        if (generalCgpaMatch) resumeUGCGPA = parseFloat(generalCgpaMatch[1]);
+    }
+
+    if (extractedEducationDetails.size === 0) {
+        const educationSectionContent = extractContentBetween(resumeContent, "EDUCATION", allKnownHeaders.filter(h => h !== "EDUCATION"));
+        if (educationSectionContent) {
+            parseEducationEntries(educationSectionContent).forEach(line => extractedEducationDetails.add(line));
+        }
+    }
     education = Array.from(extractedEducationDetails);
 
 
     // --- Skill Extraction ---
     let identifiedSkills = new Set<string>();
     
-    // For Aravind's resume, PROFILE and SKILLS are merged and followed by education
-    if (resumeFileName === "Resume Aravind.pdf") { // This specific parsing is for a PDF, which will now be skipped.
-        // This block will effectively be skipped due to the fileExtension check above.
-        const profileSkillsMatch = resumeContent.match(/PROFILESoftware skills - (.*?)\.Programming Skills - (.*?)\. Soft Skills - (.*?)\.Volunteer experience - (.*?)\.SKILLS/is);
-        if (profileSkillsMatch) {
-            const softwareSkills = profileSkillsMatch[1].split(',').map(s => s.trim()).filter(Boolean);
-            const programmingSkills = profileSkillsMatch[2].split(',').map(s => s.trim()).filter(Boolean);
-            const softSkills = profileSkillsMatch[3].split(',').map(s => s.trim()).filter(Boolean);
-            [...softwareSkills, ...programmingSkills, ...softSkills].forEach(skill => identifiedSkills.add(skill));
-        }
-        // Explicitly extract skills from the "SKILLS" section, ending before "Vellore Institute of Technology"
-        const skillsSectionContent = extractContentBetween(resumeContent, "SKILLS", [/Vellore Institute of Technology/i, ...allKnownHeaders.filter(h => h !== "SKILLS")]);
-        if (skillsSectionContent) {
-            skillsSectionContent.split(/•\s*|\n/).map(s => s.trim()).filter(Boolean).forEach(skill => identifiedSkills.add(skill));
-        }
+    // General parsing for other resumes
+    const skillsSectionContent = extractContentBetween(resumeContent, "SKILLS", allKnownHeaders.filter(h => h !== "SKILLS"));
+    const technicalSkillsSectionContent = extractContentBetween(resumeContent, "TECHNICAL SKILLS", allKnownHeaders.filter(h => h !== "TECHNICAL SKILLS"));
+    const profileSectionContent = extractContentBetween(resumeContent, "PROFILE", allKnownHeaders.filter(h => h !== "PROFILE"));
+    const certificationsSectionContent = extractContentBetween(resumeContent, "CERTIFICATIONS", allKnownHeaders.filter(h => h !== "CERTIFICATIONS"));
 
-        // Extract specific keywords from CERTIFICATES section for Aravind
-        const certificationsContent = extractContentBetween(resumeContent, "CERTIFICATES", allKnownHeaders.filter(h => h !== "CERTIFICATES"));
-        if (certificationsContent) {
-            const certKeywords = certificationsContent.match(/(Python Bootcamp|Electronics Foundations|Project Management Foundations|Ethical Hacking: Vulnerability Analysis|Introduction to Artificial Intelligence|Yolo v8|CNN|LM386|RF amplifier|VCO|tuning circuit|Multisim|Matlab|adaptive filtering)/gi);
-            if (certKeywords) {
-                certKeywords.forEach(kw => identifiedSkills.add(kw));
+    const parseSkillsBlock = (blockContent: string) => {
+        if (!blockContent) return;
+        const skillLines = blockContent.split(/•\s*|\n/).map(s => s.trim()).filter(Boolean);
+        skillLines.forEach(line => {
+            const parts = line.split(':');
+            if (parts.length > 1) {
+                const categorySkills = parts[1].split(',').map(s => s.trim()).filter(Boolean);
+                categorySkills.forEach(skill => identifiedSkills.add(skill));
+            } else {
+                line.split(',').map(s => s.trim()).filter(Boolean).forEach(skill => identifiedSkills.add(skill));
             }
-        }
+        });
+    };
 
-    } else {
-        // General parsing for other resumes
-        const skillsSectionContent = extractContentBetween(resumeContent, "SKILLS", allKnownHeaders.filter(h => h !== "SKILLS"));
-        const technicalSkillsSectionContent = extractContentBetween(resumeContent, "TECHNICAL SKILLS", allKnownHeaders.filter(h => h !== "TECHNICAL SKILLS"));
-        const profileSectionContent = extractContentBetween(resumeContent, "PROFILE", allKnownHeaders.filter(h => h !== "PROFILE"));
-        const certificationsSectionContent = extractContentBetween(resumeContent, "CERTIFICATIONS", allKnownHeaders.filter(h => h !== "CERTIFICATIONS"));
+    parseSkillsBlock(skillsSectionContent);
+    parseSkillsBlock(technicalSkillsSectionContent);
 
-        const parseSkillsBlock = (blockContent: string) => {
-            if (!blockContent) return;
-            const skillLines = blockContent.split(/•\s*|\n/).map(s => s.trim()).filter(Boolean);
-            skillLines.forEach(line => {
-                const parts = line.split(':');
-                if (parts.length > 1) {
-                    const categorySkills = parts[1].split(',').map(s => s.trim()).filter(Boolean);
-                    categorySkills.forEach(skill => identifiedSkills.add(skill));
-                } else {
-                    line.split(',').map(s => s.trim()).filter(Boolean).forEach(skill => identifiedSkills.add(skill));
-                }
-            });
-        };
-
-        parseSkillsBlock(skillsSectionContent);
-        parseSkillsBlock(technicalSkillsSectionContent);
-
-        const profileSkillsMatch = profileSectionContent.match(/Software skills - (.*?)\.Programming Skills - (.*?)\./i);
-        if (profileSkillsMatch) {
-            const softwareSkills = profileSkillsMatch[1].split(',').map(s => s.trim()).filter(Boolean);
-            const programmingSkills = profileSkillsMatch[2].split(',').map(s => s.trim()).filter(Boolean);
-            [...softwareSkills, ...programmingSkills].forEach(skill => identifiedSkills.add(skill));
-        }
-
-        if (certificationsSectionContent) {
-            const certKeywords = certificationsSectionContent.match(/(AWS Cloud Practitioner|IBM AI Engineering Professional|Data Analytics|Amazon Web Services|Artificial Intelligence|Machine Learning|Python|Semiconductor devices|Project Management|Ethical Hacking|Vulnerability Analysis|Yolo v8|CNN|LM386|RF amplifier|VCO|tuning circuit|Multisim|Matlab|adaptive filtering)/gi);
-            if (certKeywords) {
-                certKeywords.forEach(kw => identifiedSkills.add(kw));
-            }
-        }
+    const profileSkillsMatch = profileSectionContent.match(/Software skills - (.*?)\.Programming Skills - (.*?)\./i);
+    if (profileSkillsMatch) {
+        const softwareSkills = profileSkillsMatch[1].split(',').map(s => s.trim()).filter(Boolean);
+        const programmingSkills = profileSkillsMatch[2].split(',').map(s => s.trim()).filter(Boolean);
+        [...softwareSkills, ...programmingSkills].forEach(skill => identifiedSkills.add(skill));
     }
 
+    if (certificationsSectionContent) {
+        const certKeywords = certificationsSectionContent.match(/(AWS Cloud Practitioner|IBM AI Engineering Professional|Data Analytics|Amazon Web Services|Artificial Intelligence|Machine Learning|Python|Semiconductor devices|Project Management|Ethical Hacking|Vulnerability Analysis|Yolo v8|CNN|LM386|RF amplifier|VCO|tuning circuit|Multisim|Matlab|adaptive filtering)/gi);
+        if (certKeywords) {
+            certKeywords.forEach(kw => identifiedSkills.add(kw));
+        }
+    }
     skills = Array.from(identifiedSkills);
 
     // --- Experience Parsing ---
@@ -638,23 +579,16 @@ const Index = () => {
       return entries;
     };
 
-    // Specific handling for Aravind's embedded PROJECT section
-    const aravindProjectMatch = resumeContent.match(/PROJECT\s*(.*?)(?:CLUBS AND CHAPTERS|CERTIFICATES|EDUCATION|$)/is);
-    if (aravindProjectMatch && aravindProjectMatch[1]) { // This specific parsing is for a PDF, which will now be skipped.
-        // This block will effectively be skipped due to the fileExtension check above.
-        tempExperience.push(...parseExperienceEntries(aravindProjectMatch[1]));
-    } else {
-        // General parsing for WORK EXPERIENCE
-        const workExperienceSectionContent = extractContentBetween(resumeContent, "WORK EXPERIENCE", allKnownHeaders.filter(h => h !== "WORK EXPERIENCE"));
-        if (workExperienceSectionContent) {
-            tempExperience.push(...parseExperienceEntries(workExperienceSectionContent));
-        }
+    // General parsing for WORK EXPERIENCE
+    const workExperienceSectionContent = extractContentBetween(resumeContent, "WORK EXPERIENCE", allKnownHeaders.filter(h => h !== "WORK EXPERIENCE"));
+    if (workExperienceSectionContent) {
+        tempExperience.push(...parseExperienceEntries(workExperienceSectionContent));
+    }
 
-        // General parsing for PROJECTS (if not handled by Aravind's specific case)
-        const projectsSectionContent = extractContentBetween(resumeContent, "PROJECTS", allKnownHeaders.filter(h => h !== "PROJECTS"));
-        if (projectsSectionContent) {
-            tempExperience.push(...parseExperienceEntries(projectsSectionContent));
-        }
+    // General parsing for PROJECTS
+    const projectsSectionContent = extractContentBetween(resumeContent, "PROJECTS", allKnownHeaders.filter(h => h !== "PROJECTS"));
+    if (projectsSectionContent) {
+        tempExperience.push(...parseExperienceEntries(projectsSectionContent));
     }
     
     // Also add certifications as experience entries if they are substantial
@@ -920,15 +854,43 @@ const Index = () => {
     const readFilesPromises = files.map(file => {
       return new Promise<[string, string]>((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
           if (e.target?.result) {
-            resolve([file.name, e.target.result as string]);
+            const fileExtension = file.name.split('.').pop()?.toLowerCase();
+            if (fileExtension === 'pdf' || fileExtension === 'doc' || fileExtension === 'docx') {
+              // Send to Edge Function for parsing
+              try {
+                const base64Content = (e.target.result as string).split(',')[1]; // Extract base64 part
+                const { data, error } = await supabase.functions.invoke('parse-resume', {
+                  body: { fileBase64: base64Content, fileName: file.name },
+                });
+
+                if (error) {
+                  console.error("Edge Function error:", error);
+                  reject(new Error(`Failed to parse PDF via Edge Function: ${error.message}`));
+                  return;
+                }
+                resolve([file.name, data.content]); // data.content is the parsed text
+              } catch (edgeFnError: any) {
+                console.error("Error invoking Edge Function:", edgeFnError);
+                reject(new Error(`Error invoking PDF parser: ${edgeFnError.message}`));
+              }
+            } else {
+              // For text files, read directly
+              resolve([file.name, e.target.result as string]);
+            }
           } else {
             reject(new Error(`Failed to read file: ${file.name}`));
           }
         };
         reader.onerror = (error) => reject(error);
-        reader.readAsText(file); // Read as text
+        
+        const fileExtension = file.name.split('.').pop()?.toLowerCase();
+        if (fileExtension === 'pdf' || fileExtension === 'doc' || fileExtension === 'docx') {
+          reader.readAsDataURL(file); // Read as Data URL (Base64) for binary files
+        } else {
+          reader.readAsText(file); // Read as text for plain text files
+        }
       });
     });
 
