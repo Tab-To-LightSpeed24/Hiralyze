@@ -2,21 +2,23 @@ import React, { useState, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { NeonCard, NeonCardContent, NeonCardHeader, NeonCardTitle } from "@/components/NeonCard"; // Use NeonCard
-import { NeonButton } from "@/components/NeonButton"; // Use NeonButton
+import { NeonCard, NeonCardContent, NeonCardHeader, NeonCardTitle } from "@/components/NeonCard";
+import { NeonButton } from "@/components/NeonButton";
 import { showSuccess, showError } from "@/utils/toast";
 import { motion } from "framer-motion";
 import { UploadCloud, FileText } from "lucide-react";
 import { cn } from '@/lib/utils';
+import { Candidate } from '@/types'; // Import Candidate type
 
 interface ResumeUploadFormProps {
-  onProcessResumes: (jobDescription: string, files: File[]) => void;
+  onProcessResumes: (jobDescription: string, files: File[]) => Promise<Candidate[]>; // Updated to return Promise<Candidate[]>
 }
 
 const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes }) => {
   const [jobDescription, setJobDescription] = useState<string>("");
   const [resumeFiles, setResumeFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false); // New state for submission loading
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
@@ -50,17 +52,14 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes })
 
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const newFiles = Array.from(e.dataTransfer.files).filter(file =>
-        file.type === 'application/pdf' ||
-        file.type === 'text/plain' ||
-        file.type === 'application/msword' || // .doc
-        file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' // .docx
+        file.type === 'application/pdf'
       );
       setResumeFiles(prevFiles => [...prevFiles, ...newFiles]);
       e.dataTransfer.clearData();
     }
   }, []);
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!jobDescription.trim()) {
       showError("Please enter a job description.");
@@ -70,14 +69,23 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes })
       showError("Please upload at least one resume.");
       return;
     }
-    onProcessResumes(jobDescription, resumeFiles);
-    showSuccess("Resumes and job description submitted for processing!");
-    setJobDescription("");
-    setResumeFiles([]);
-    // Reset file input if it exists
-    const fileInput = document.getElementById("resumes") as HTMLInputElement;
-    if (fileInput) {
-      fileInput.value = "";
+
+    setIsSubmitting(true); // Start loading
+    try {
+      await onProcessResumes(jobDescription, resumeFiles);
+      showSuccess("Resumes and job description submitted for processing!");
+      setJobDescription("");
+      setResumeFiles([]);
+      // Reset file input if it exists
+      const fileInput = document.getElementById("resumes") as HTMLInputElement;
+      if (fileInput) {
+        fileInput.value = "";
+      }
+    } catch (error) {
+      console.error("Error processing resumes:", error);
+      showError("Failed to process resumes. Please try again.");
+    } finally {
+      setIsSubmitting(false); // End loading
     }
   };
 
@@ -93,11 +101,11 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes })
       variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
       className="w-full max-w-2xl mx-auto"
     >
-      <NeonCard className="w-full"> {/* Use NeonCard */}
-        <NeonCardHeader> {/* Use NeonCardHeader */}
-          <NeonCardTitle className="text-center">Hiralyze: Match Resumes to Jobs</NeonCardTitle> {/* Use NeonCardTitle */}
+      <NeonCard className="w-full">
+        <NeonCardHeader>
+          <NeonCardTitle className="text-center">Hiralyze: Match Resumes to Jobs</NeonCardTitle>
         </NeonCardHeader>
-        <NeonCardContent> {/* Use NeonCardContent */}
+        <NeonCardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <motion.div variants={itemVariants} className="grid w-full items-center gap-1.5">
               <Label htmlFor="job-description" className="text-primary text-neon-glow">Job Description</Label>
@@ -112,7 +120,7 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes })
             </motion.div>
 
             <motion.div variants={itemVariants} className="grid w-full items-center gap-1.5">
-              <Label htmlFor="resumes" className="text-primary text-neon-glow">Upload Resumes (PDF/Text/Word)</Label>
+              <Label htmlFor="resumes" className="text-primary text-neon-glow">Upload Resumes (PDF Only)</Label>
               <div
                 className={cn(
                   `border-2 border-dashed rounded-md p-6 text-center cursor-pointer transition-colors relative`,
@@ -131,7 +139,7 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes })
                 <Input
                   id="resumes"
                   type="file"
-                  accept=".pdf,.txt,.doc,.docx"
+                  accept=".pdf" // Only accept PDF files
                   multiple
                   onChange={handleFileChange}
                   className="hidden" // Hide the default input
@@ -151,8 +159,8 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes })
             </motion.div>
 
             <motion.div variants={itemVariants}>
-              <NeonButton type="submit" className="w-full"> {/* Use NeonButton */}
-                Process Resumes
+              <NeonButton type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? "Processing..." : "Process Resumes"}
               </NeonButton>
             </motion.div>
           </form>
