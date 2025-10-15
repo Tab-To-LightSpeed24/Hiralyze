@@ -386,7 +386,7 @@ const readFileContent = async (file: File): Promise<string> => {
   const arrayBuffer = await file.arrayBuffer();
 
   if (extension === 'pdf') {
-    const pdf = (await import('pdf-parse')).default;
+    const pdf = await import('pdf-parse');
     const data = await pdf(arrayBuffer);
     return data.text;
   } else if (extension === 'docx' || extension === 'doc') {
