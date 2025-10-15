@@ -5,13 +5,10 @@ import { Candidate } from "@/types";
 import { Separator } from "@/components/ui/separator";
 import { motion } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { showError } from '@/utils/toast';
-import * as pdfjsLib from 'pdfjs-dist';
+import { cn } from '@/lib/utils';
 import mammoth from 'mammoth';
-
-// Setup for the PDF parsing library worker
-// This tells Vite to bundle the worker file and serve it locally, resolving CORS issues.
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.js', import.meta.url).toString();
+import { showError } from '@/utils/toast';
+import pdf from 'pdf-parse';
 
 // Define the comprehensive list of roles and their core keywords
 const ROLE_KEYWORDS: { [key: string]: string[] } = {
@@ -385,6 +382,24 @@ const ROLE_KEYWORDS: { [key: string]: string[] } = {
   ],
 };
 
+const readFileContent = async (file: File): Promise<string> => {
+  const extension = file.name.split('.').pop()?.toLowerCase();
+  const arrayBuffer = await file.arrayBuffer();
+
+  if (extension === 'pdf') {
+    const data = await pdf(arrayBuffer);
+    return data.text;
+  } else if (extension === 'docx' || extension === 'doc') {
+    const result = await mammoth.extractRawText({ arrayBuffer });
+    return result.value;
+  } else if (extension === 'txt') {
+    const decoder = new TextDecoder('utf-8');
+    return decoder.decode(arrayBuffer);
+  } else {
+    throw new Error(`Unsupported file type: .${extension}`);
+  }
+};
+
 const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescription: string): Candidate => {
   const candidateName = resumeFileName.split('.')[0];
   const resumeContentLower = resumeContent.toLowerCase();
@@ -488,7 +503,7 @@ const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescrip
     }
   }
   const explicitJdKeywords = (jobDescription.match(/(?:skills|requirements|proficient in):?\s*([\s\S]+)/i)?.[1]?.split(/,|\n|•/).map(s => s.trim().toLowerCase()).filter(Boolean)) || [];
-  const jdKeywordsToMatch = new Set<string>([...jdPrimaryRoleKeywords, ...explicitJdKeywords]);
+  const jdKeywordsToMatch = new Set<string>([...jdPrimaryRoleKeywords, ...explicitJdsKeywords]);
   const finalJdKeywords = Array.from(jdKeywordsToMatch);
 
   let bestRoleMatchCount = 0;
@@ -561,42 +576,16 @@ const Index = () => {
     setProcessing(true);
     setShortlistedCandidates([]);
     setNotShortlistedCandidates([]);
-    console.log("Processing resumes locally in the browser:", files.map(f => f.name));
-
-    const getFileContent = async (file: File): Promise<string> => {
-      const arrayBuffer = await file.arrayBuffer();
-      if (file.type === 'application/pdf') {
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        let fullText = '';
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const textContent = await page.getTextContent();
-          fullText += textContent.items.map(item => ('str' in item ? item.str : '')).join(' ') + '\n';
-        }
-        return fullText;
-      } else if (
-        file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-        file.type === 'application/msword'
-      ) {
-        const { value } = await mammoth.extractRawText({ arrayBuffer });
-        return value;
-      } else if (file.type === 'text/plain') {
-        return new TextDecoder().decode(arrayBuffer);
-      }
-      throw new Error(`Unsupported file type: ${file.type}`);
-    };
+    console.log("Processing real resume files:", files.map(f => f.name));
 
     try {
       const processedCandidatesPromises = files.map(async (file) => {
         try {
-          const resumeContent = await getFileContent(file);
-          if (!resumeContent) {
-            throw new Error("Parsed content is empty.");
-          }
-          return analyzeResume(file.name, resumeContent, jobDescription);
+          const resumeContent = await readFileContent(file);
+          return analyzeResume(file.name, resumeContent, jobDescription); 
         } catch (error) {
           console.error(`Failed to process file ${file.name}:`, error);
-          showError(`Failed to process ${file.name}. Error: ${error.message}`);
+          showError(`Could not read or process ${file.name}. It might be corrupted or an unsupported format.`);
           return null;
         }
       });
