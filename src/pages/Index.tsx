@@ -7,11 +7,7 @@ import { motion } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from '@/lib/utils';
 import { showError } from '@/utils/toast';
-import * as pdfjs from 'pdfjs-dist'; // Import pdfjs-dist
-import mammoth from 'mammoth'; // Import mammoth
-
-// Configure pdfjs worker source
-pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+import { Docling } from 'docling'; // Import Docling
 
 // Define the comprehensive list of roles and their core keywords
 const ROLE_KEYWORDS: { [key: string]: string[] } = {
@@ -386,27 +382,9 @@ const ROLE_KEYWORDS: { [key: string]: string[] } = {
 };
 
 const readFileContent = async (file: File): Promise<string> => {
-  const fileType = file.type;
-
-  if (fileType === 'application/pdf') {
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
-    let fullText = '';
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      fullText += textContent.items.map((item: any) => item.str).join(' ');
-    }
-    return fullText;
-  } else if (fileType === 'application/msword' || fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-    const arrayBuffer = await file.arrayBuffer();
-    const { value } = await mammoth.extractRawText({ arrayBuffer });
-    return value;
-  } else if (fileType === 'text/plain') {
-    return await file.text();
-  } else {
-    throw new Error(`Unsupported file type: ${fileType}`);
-  }
+  const docling = new Docling();
+  const text = await docling.extract(file);
+  return text;
 };
 
 const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescription: string): Candidate => {
@@ -579,7 +557,6 @@ const Index = () => {
       const processedCandidatesPromises = files.map(async (file) => {
         try {
           const resumeContent = await readFileContent(file);
-          // The parsing function is now operating on REAL data
           return analyzeResume(file.name, resumeContent, jobDescription); 
         } catch (error) {
           console.error(`Failed to process file ${file.name}:`, error);
