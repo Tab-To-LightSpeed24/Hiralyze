@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { readPdf } from "https://deno.land/x/pdf_reader@0.1.0/mod.ts"; // Switched to pdf_reader
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -33,24 +32,16 @@ serve(async (req) => {
   }
 
   try {
-    const formData = await req.formData();
-    const resumeFile = formData.get('resume') as File;
-    const jobDescription = formData.get('jobDescription') as string;
+    const { resumeText, jobDescription, resumeFileName } = await req.json();
 
-    if (!resumeFile || !jobDescription) {
-      return new Response(JSON.stringify({ error: 'Missing resume file or job description' }), {
+    if (!resumeText || !jobDescription || !resumeFileName) {
+      return new Response(JSON.stringify({ error: 'Missing resume text, job description, or resume file name' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // 1. Extract text from PDF using pdf_reader
-    const fileBuffer = await resumeFile.arrayBuffer();
-    const pdfDocument = await readPdf(fileBuffer);
-    const pdfText = pdfDocument.pages.map(page => page.text).join('\n');
-
-
-    // 2. Construct a detailed prompt for the LLM
+    // 1. Construct a detailed prompt for the LLM
     const prompt = `
       You are an expert resume parser. Your task is to extract structured information from the provided resume text and job description.
       Return the extracted data in a JSON format that strictly adheres to the TypeScript interfaces provided below.
@@ -104,7 +95,7 @@ serve(async (req) => {
 
       ---
       Resume Text:
-      ${pdfText}
+      ${resumeText}
 
       ---
       Job Description:
@@ -114,7 +105,7 @@ serve(async (req) => {
       JSON Output:
     `;
 
-    // 3. Make an API call to the LLM (e.g., OpenAI)
+    // 2. Make an API call to the LLM (e.g., OpenAI)
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     if (!OPENAI_API_KEY) {
       return new Response(JSON.stringify({ error: 'OPENAI_API_KEY not set in environment variables' }), {
@@ -149,13 +140,13 @@ serve(async (req) => {
     const openaiData = await openaiResponse.json();
     const llmOutput = openaiData.choices[0].message.content;
 
-    // 4. Parse the LLM's JSON response
+    // 3. Parse the LLM's JSON response
     let parsedCandidateData;
     try {
       parsedCandidateData = JSON.parse(llmOutput);
       // Generate a unique ID for the candidate
       parsedCandidateData.id = `cand-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-      parsedCandidateData.resumeFileName = resumeFile.name;
+      parsedCandidateData.resumeFileName = resumeFileName;
       parsedCandidateData.matchScore = 0; // Initialize, will be computed on frontend
       parsedCandidateData.justification = ""; // Initialize, will be computed on frontend
     } catch (jsonError) {
@@ -166,7 +157,7 @@ serve(async (req) => {
       });
     }
 
-    // 5. Return the structured Candidate data
+    // 4. Return the structured Candidate data
     return new Response(JSON.stringify(parsedCandidateData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
