@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from '@/lib/utils';
 import mammoth from 'mammoth';
 import { showError } from '@/utils/toast';
-import * as pdfParse from 'pdf-parse';
+import pdf from 'pdf-parse';
 
 // Define the comprehensive list of roles and their core keywords
 const ROLE_KEYWORDS: { [key: string]: string[] } = {
@@ -387,8 +387,6 @@ const readFileContent = async (file: File): Promise<string> => {
   const arrayBuffer = await file.arrayBuffer();
 
   if (extension === 'pdf') {
-    // This is the fix for the CJS/ESM import issue with pdf-parse
-    const pdf = (pdfParse as any).default || pdfParse;
     const data = await pdf(arrayBuffer);
     return data.text;
   } else if (extension === 'docx' || extension === 'doc') {
@@ -505,7 +503,7 @@ const analyzeResume = (resumeFileName: string, resumeContent: string, jobDescrip
     }
   }
   const explicitJdKeywords = (jobDescription.match(/(?:skills|requirements|proficient in):?\s*([\s\S]+)/i)?.[1]?.split(/,|\n|•/).map(s => s.trim().toLowerCase()).filter(Boolean)) || [];
-  const jdKeywordsToMatch = new Set<string>([...jdPrimaryRoleKeywords, ...explicitJdKeywords]);
+  const jdKeywordsToMatch = new Set<string>([...jdPrimaryRoleKeywords, ...explicitJdsKeywords]);
   const finalJdKeywords = Array.from(jdKeywordsToMatch);
 
   let bestRoleMatchCount = 0;
