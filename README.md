@@ -2,8 +2,9 @@
 
 Hiralyze is an intelligent resume parsing and matching application designed to streamline the candidate screening process. It leverages a sophisticated analysis engine to parse resumes, extract key skills and experience, and match them against job descriptions to provide a compatibility score, detailed justification, and intelligent role suggestions.
 
-- **GitHub Repository:** [**Insert GitHub Repository Link Here**]
-- **Demo Video:** [**Insert 2-3 Minute Demo Video Link Here**]
+<img width="1919" height="905" alt="image" src="https://github.com/user-attachments/assets/1dc24c10-8bec-4321-8e73-6941277513e7" />
+
+<img width="1919" height="905" alt="image" src="https://github.com/user-attachments/assets/c40732ee-a931-4edf-972a-ec37daa4ed7d" />
 
 ---
 
