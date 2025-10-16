@@ -1,9 +1,9 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/+esm';
+import { Buffer } from "https://deno.land/std@0.190.0/io/buffer.ts";
 
-// Using the legacy build of pdfjs-dist to ensure compatibility with the Deno environment.
-// This build does not have the web-worker dependencies that caused the previous crashes.
-import { getDocument } from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/legacy/build/pdf.mjs';
+// Using the robust pdf-parse library, which is ideal for server-side processing.
+import pdf from 'https://esm.sh/pdf-parse@1.1.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -44,17 +44,13 @@ serve(async (req) => {
       });
     }
 
-    // Decode Base64 PDF data
-    const pdfBuffer = Uint8Array.from(atob(resumeBase64), c => c.charCodeAt(0));
+    // Decode Base64 and CRITICALLY, convert to a Deno Buffer.
+    // This ensures the data format is exactly what pdf-parse expects, fixing the crash.
+    const pdfBuffer = new Buffer(Uint8Array.from(atob(resumeBase64), c => c.charCodeAt(0)).buffer);
 
-    // --- Extract text using the stable legacy PDF library ---
-    const doc = await getDocument({ data: pdfBuffer, disableWorker: true }).promise;
-    let resumeText = '';
-    for (let i = 1; i <= doc.numPages; i++) {
-        const page = await doc.getPage(i);
-        const content = await page.getTextContent();
-        resumeText += content.items.map((item: any) => item.str).join(' ') + '\n'; 
-    }
+    // --- Extract text using pdf-parse ---
+    const data = await pdf(pdfBuffer);
+    const resumeText = data.text;
     // --- End text extraction ---
 
     // 1. Construct a detailed prompt for the LLM
