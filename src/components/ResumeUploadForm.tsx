@@ -8,23 +8,26 @@ import { showSuccess, showError } from "@/utils/toast";
 import { motion } from "framer-motion";
 import { UploadCloud, FileText } from "lucide-react";
 import { cn } from '@/lib/utils';
-import { Candidate } from '@/types'; // Import Candidate type
-// Removed: import pdfParse from 'pdf-parse'; // This library is for Node.js, not browser
+import { Candidate } from '@/types';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// This is a critical step to ensure the library can find its worker file for processing.
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.mjs`;
 
 interface ResumeFileWithData {
   fileName: string;
-  arrayBuffer: ArrayBuffer; // Now passing ArrayBuffer instead of text
+  resumeText: string; // The component will now pass extracted text instead of the file buffer.
 }
 
 interface ResumeUploadFormProps {
-  onProcessResumes: (jobDescription: string, resumeFilesData: ResumeFileWithData[]) => Promise<Candidate[]>; // Updated prop type
+  onProcessResumes: (jobDescription: string, resumeFilesData: ResumeFileWithData[]) => Promise<Candidate[]>;
 }
 
 const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes }) => {
   const [jobDescription, setJobDescription] = useState<string>("");
   const [resumeFiles, setResumeFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false); // New state for submission loading
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
@@ -75,12 +78,25 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes })
       return;
     }
 
-    setIsSubmitting(true); // Start loading
+    setIsSubmitting(true);
     try {
       const resumeFilesData: ResumeFileWithData[] = [];
       for (const file of resumeFiles) {
         const arrayBuffer = await file.arrayBuffer();
-        resumeFilesData.push({ fileName: file.name, arrayBuffer: arrayBuffer });
+        
+        // --- CLIENT-SIDE PDF PARSING ---
+        // The PDF is now read and converted to text here, in the browser.
+        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+        const pdf = await loadingTask.promise;
+        let text = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          text += textContent.items.map((item: any) => item.str).join(' ') + '\n';
+        }
+        // --- END PARSING ---
+
+        resumeFilesData.push({ fileName: file.name, resumeText: text });
       }
 
       await onProcessResumes(jobDescription, resumeFilesData);
@@ -93,9 +109,9 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes })
       }
     } catch (error) {
       console.error("Error processing resumes:", error);
-      showError("Failed to process resumes. Please try again.");
+      showError("Failed to read or process resumes. Please check the files and try again.");
     } finally {
-      setIsSubmitting(false); // End loading
+      setIsSubmitting(false);
     }
   };
 
@@ -149,10 +165,10 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes })
                 <Input
                   id="resumes"
                   type="file"
-                  accept=".pdf" // Only accept PDF files
+                  accept=".pdf"
                   multiple
                   onChange={handleFileChange}
-                  className="hidden" // Hide the default input
+                  className="hidden"
                 />
               </div>
               {resumeFiles.length > 0 && (

@@ -1,9 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/+esm';
-import { Buffer } from "https://deno.land/std@0.190.0/io/buffer.ts";
-
-// Using the robust pdf-parse library, which is ideal for server-side processing.
-import pdf from 'https://esm.sh/pdf-parse@1.1.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,7 +12,7 @@ const supabase = createClient(
 );
 
 serve(async (req) => {
-  // Handle CORS preflight request FIRST
+  // Handle CORS preflight request
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -35,25 +31,17 @@ serve(async (req) => {
   }
 
   try {
-    const { resumeBase64, jobDescription, resumeFileName } = await req.json();
+    // The function now receives pre-parsed text. No more PDF libraries needed on the server.
+    const { resumeText, jobDescription, resumeFileName } = await req.json();
 
-    if (!resumeBase64 || !jobDescription || !resumeFileName) {
-      return new Response(JSON.stringify({ error: 'Missing resume Base64 data, job description, or resume file name' }), {
+    if (!resumeText || !jobDescription || !resumeFileName) {
+      return new Response(JSON.stringify({ error: 'Missing resume text, job description, or file name' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Decode Base64 and CRITICALLY, convert to a Deno Buffer.
-    // This ensures the data format is exactly what pdf-parse expects, fixing the crash.
-    const pdfBuffer = new Buffer(Uint8Array.from(atob(resumeBase64), c => c.charCodeAt(0)).buffer);
-
-    // --- Extract text using pdf-parse ---
-    const data = await pdf(pdfBuffer);
-    const resumeText = data.text;
-    // --- End text extraction ---
-
-    // 1. Construct a detailed prompt for the LLM
+    // 1. Construct the prompt for the LLM using the provided text
     const prompt = `
       You are an expert resume parser. Your task is to extract structured information from the provided resume text and job description.
       Return the extracted data in a JSON format that strictly adheres to the TypeScript interfaces provided below.
