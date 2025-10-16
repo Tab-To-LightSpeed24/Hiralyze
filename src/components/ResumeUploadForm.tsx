@@ -85,14 +85,15 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes })
         const arrayBuffer = await file.arrayBuffer();
         
         // --- CLIENT-SIDE PDF PARSING ---
-        // The PDF is now read and converted to text here, in the browser.
         const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
         const pdf = await loadingTask.promise;
         let text = '';
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
           const textContent = await page.getTextContent();
-          text += textContent.items.map((item: any) => item.str).join(' ') + '\n';
+          // This now joins with a newline to preserve the resume's structure,
+          // which is critical for the parsing logic to work correctly.
+          text += textContent.items.map((item: any) => item.str).join('\n') + '\n';
         }
         // --- END PARSING ---
 
