@@ -379,57 +379,134 @@ const ROLE_KEYWORDS: { [key: string]: string[] } = {
   ],
 };
 
+// A more robust function to extract the text content of a specific section
+const getSectionText = (resumeText: string, sectionKeywords: string[]): string => {
+    const textLower = resumeText.toLowerCase();
+    const allSectionHeaders = [
+        "summary", "education", "technical skills", "skills", "experience", "work history", 
+        "projects", "certifications", "languages", "awards", "achievements"
+    ];
+
+    let startIndex = -1;
+    let foundKeyword = '';
+
+    // Find the start of our target section using a regex that matches the keyword on its own line
+    for (const keyword of sectionKeywords) {
+        const lowerKeyword = keyword.toLowerCase();
+        const regex = new RegExp(`^\\s*${lowerKeyword}\\s*$`, 'im');
+        const match = textLower.match(regex);
+        if (match && typeof match.index === 'number') {
+            startIndex = match.index;
+            foundKeyword = lowerKeyword;
+            break;
+        }
+    }
+
+    if (startIndex === -1) return "";
+
+    // Find the start of the *next* section to determine the end of the current one
+    let endIndex = resumeText.length;
+    const textAfterStart = resumeText.substring(startIndex + foundKeyword.length);
+
+    for (const header of allSectionHeaders) {
+        if (sectionKeywords.map(k => k.toLowerCase()).includes(header)) continue;
+        const regex = new RegExp(`^\\s*${header}\\s*$`, 'im');
+        const match = textAfterStart.toLowerCase().match(regex);
+        if (match && typeof match.index === 'number') {
+            const potentialEndIndex = startIndex + foundKeyword.length + match.index;
+            if (potentialEndIndex < endIndex) {
+                endIndex = potentialEndIndex;
+            }
+        }
+    }
+    
+    const sectionText = resumeText.substring(startIndex, endIndex);
+    // Return the content of the section, excluding the header itself
+    return sectionText.split('\n').slice(1).join('\n').trim();
+};
+
+// Dedicated parsers for each section
+const parseSkills = (skillsText: string): string[] => {
+    if (!skillsText) return [];
+    return skillsText.split(/,|\n|•|:/)
+        .flatMap(line => line.split(/  +/))
+        .map(skill => skill.replace(/•|\*|Languages:|Full-Stack Development:|AI\/ML:|Computer Vision & Audio:|Tools & Collaboration:/gi, '').trim())
+        .filter(skill => skill && skill.length > 1);
+};
+
+const parseEducation = (educationText: string): EducationEntry[] => {
+    if (!educationText) return [];
+    const entries: EducationEntry[] = [];
+    const lines = educationText.split('\n').filter(Boolean);
+    
+    lines.forEach(line => {
+        const gpaMatch = line.match(/(?:CGPA|gpa):\s*(\d\.\d+)/i);
+        const dateMatch = line.match(/(\w+\s\d{4})\s*–\s*(\w+\s\d{4})|(\d{4})\s*\|\s*(\d{4})/);
+        
+        entries.push({
+            institution: line.split('|')[0]?.split(',')[0]?.trim() || 'N/A',
+            degree: line.split('|')[0]?.split(',')[1]?.trim() || 'Details in description',
+            gpa: gpaMatch ? parseFloat(gpaMatch[1]) : undefined,
+            startDate: dateMatch ? (dateMatch[1] || dateMatch[4] || 'N/A') : 'N/A',
+            endDate: dateMatch ? (dateMatch[2] || dateMatch[3] || 'N/A') : 'N/A',
+            description: [line]
+        });
+    });
+    return entries;
+};
+
+const parseProjectsOrExperience = (sectionText: string): (ProjectEntry | ExperienceEntry)[] => {
+    if (!sectionText) return [];
+    const entries: (ProjectEntry | ExperienceEntry)[] = [];
+    const lines = sectionText.split('\n').filter(Boolean);
+    let currentEntry: { title: string; description: string[] } | null = null;
+
+    lines.forEach(line => {
+        const isNewEntry = !line.trim().startsWith('•') && !line.trim().startsWith('*');
+        if (isNewEntry) {
+            if (currentEntry) entries.push({ ...currentEntry, description: currentEntry.description.join(' ') } as ProjectEntry);
+            currentEntry = {
+                title: line.replace(/Link to (Github|Website)/i, '').trim(),
+                description: [],
+            };
+        } else if (currentEntry) {
+            currentEntry.description.push(line.replace(/•|\*/g, '').trim());
+        }
+    });
+    if (currentEntry) entries.push({ ...currentEntry, description: currentEntry.description.join(' ') } as ProjectEntry);
+
+    // This is a simplified parser; for now, we'll map it to the ProjectEntry structure
+    return entries.map(e => ({
+        title: e.title,
+        description: (e as any).description,
+        technologies: [],
+        company: 'N/A',
+        startDate: 'N/A',
+        endDate: 'N/A',
+    }));
+};
+
 /**
  * A client-side function to parse raw resume text into a structured Candidate object.
- * Uses regex and section-based analysis to extract information.
  */
 const parseResumeText = (resumeText: string, fileName: string): Omit<Candidate, 'matchScore' | 'justification' | 'suggestedRole'> => {
     const lines = resumeText.split('\n').map(line => line.trim()).filter(line => line);
     
-    // Basic info extraction
     const name = lines[0] || 'Unknown Candidate';
     const email = resumeText.match(/[\w.-]+@[\w.-]+\.\w+/)?.[0] || 'N/A';
     const phone = resumeText.match(/\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/)?.[0];
     const linkedin = resumeText.match(/linkedin\.com\/in\/[\w-]+/)?.[0];
     const github = resumeText.match(/github\.com\/[\w-]+/)?.[0];
 
-    // Helper to find sections and their content
-    const getSectionContent = (sectionKeywords: string[]): string[] => {
-        const textLower = resumeText.toLowerCase();
-        let startIndex = -1;
-        for (const keyword of sectionKeywords) {
-            startIndex = textLower.indexOf(keyword.toLowerCase());
-            if (startIndex !== -1) break;
-        }
-        if (startIndex === -1) return [];
+    const skillsText = getSectionText(resumeText, ["Technical Skills", "Skills", "Proficiencies"]);
+    const educationText = getSectionText(resumeText, ["Education"]);
+    const projectsText = getSectionText(resumeText, ["Projects"]);
+    const experienceText = getSectionText(resumeText, ["Experience", "Work History"]);
 
-        const nextSectionKeywords = [
-            "experience", "work history", "education", "skills", "projects", 
-            "technical skills", "certifications", "awards", "languages"
-        ];
-        let endIndex = resumeText.length;
-        const remainingText = textLower.substring(startIndex + sectionKeywords[0].length);
-        
-        for (const keyword of nextSectionKeywords) {
-            const nextIndex = remainingText.indexOf(keyword.toLowerCase());
-            if (nextIndex !== -1 && (endIndex === resumeText.length || (startIndex + sectionKeywords[0].length + nextIndex) < endIndex)) {
-                endIndex = startIndex + sectionKeywords[0].length + nextIndex;
-            }
-        }
-        
-        return resumeText.substring(startIndex, endIndex).split('\n').slice(1).map(s => s.trim()).filter(Boolean);
-    };
-
-    // Parsing sections
-    const skills = getSectionContent(["Skills", "Technical Skills", "Proficiencies"]).join(' ').split(/,|\s{2,}|•|\*|\-/).map(s => s.trim()).filter(s => s && s.length > 1);
-    const experienceContent = getSectionContent(["Experience", "Work History"]);
-    const educationContent = getSectionContent(["Education"]);
-    const projectsContent = getSectionContent(["Projects"]);
-
-    // Basic parsing for complex sections (can be improved with more specific regex)
-    const experience: ExperienceEntry[] = experienceContent.length > 0 ? [{ title: 'Experience Details', company: 'N/A', startDate: 'N/A', endDate: 'N/A', description: experienceContent }] : [];
-    const education: EducationEntry[] = educationContent.length > 0 ? [{ degree: 'Education Details', institution: 'N/A', startDate: 'N/A', endDate: 'N/A', gpa: parseFloat(educationContent.join(' ').match(/(?:gpa|cgpa):\s*(\d\.\d+)/i)?.[1] || '0') || undefined, description: educationContent }] : [];
-    const projects: ProjectEntry[] = projectsContent.length > 0 ? [{ title: 'Project Details', description: projectsContent.join(' '), technologies: [] }] : [];
+    const skills = parseSkills(skillsText);
+    const education = parseEducation(educationText);
+    const projects = parseProjectsOrExperience(projectsText) as ProjectEntry[];
+    const experience = parseProjectsOrExperience(experienceText) as ExperienceEntry[];
 
     return {
         id: `client-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
@@ -593,7 +670,6 @@ const Index = () => {
     setProcessing(true);
     
     const processedCandidates = resumeFilesData.map(resumeData => {
-        // Step 1: Basic parsing from raw text into a structured object
         const parsedData = parseResumeText(resumeData.resumeText, resumeData.fileName);
         
         const candidateForAnalysis: Candidate = {
@@ -602,7 +678,6 @@ const Index = () => {
             justification: '',
         };
 
-        // Step 2: Analyze the parsed data against the JD
         return analyzeCandidateMatch(candidateForAnalysis, jobDescription);
     });
 

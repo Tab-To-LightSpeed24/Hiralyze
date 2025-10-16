@@ -42,19 +42,19 @@ const CandidateCard: React.FC<CandidateCardProps> = ({ candidate, index, onClick
       animate="visible"
       whileHover="hover"
       onClick={onClick}
-      className="cursor-pointer h-full"
+      className="cursor-pointer" // Removed h-full
     >
-      <NeonCard className="w-full h-full flex flex-col justify-between">
+      <NeonCard className="w-full flex flex-col justify-between"> {/* Removed h-full */}
         <div>
           <NeonCardHeader>
-            <div className="flex justify-between items-start">
-              <NeonCardTitle className="flex-grow min-w-0 text-xl">
+            <div className="flex justify-between items-start gap-2">
+              <NeonCardTitle className="flex-grow min-w-0 text-lg"> {/* Reduced font size */}
                 {candidate.name}
               </NeonCardTitle>
               <Badge 
                 variant="outline" 
                 className={cn(
-                  "text-lg px-3 py-1 border-primary text-primary bg-primary/10",
+                  "text-base px-2 py-0.5 border-primary text-primary bg-primary/10", // Made badge more compact
                   "shadow-neon-glow-sm flex-shrink-0"
                 )}
               >
