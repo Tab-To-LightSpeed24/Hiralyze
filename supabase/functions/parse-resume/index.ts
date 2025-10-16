@@ -1,11 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/+esm';
 
-// Switched from esm.sh to jsdelivr CDN to resolve module bundling issues.
-import { getDocument, GlobalWorkerOptions } from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/legacy/build/pdf.mjs';
-
-// Set the worker source to the jsdelivr CDN as well.
-GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pdf.worker.mjs';
+// Using the legacy build of pdfjs-dist to ensure compatibility.
+import { getDocument } from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/legacy/build/pdf.mjs';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -49,7 +46,8 @@ serve(async (req) => {
     // Decode Base64 PDF data
     const pdfBuffer = Uint8Array.from(atob(resumeBase64), c => c.charCodeAt(0));
 
-    // Use the legacy build and explicitly disable the worker as a safeguard.
+    // Use the legacy build and explicitly disable the worker.
+    // This is the key fix: do NOT set GlobalWorkerOptions.workerSrc.
     const doc = await getDocument({ data: pdfBuffer, disableWorker: true }).promise;
     let resumeText = '';
     for (let i = 1; i <= doc.numPages; i++) {
