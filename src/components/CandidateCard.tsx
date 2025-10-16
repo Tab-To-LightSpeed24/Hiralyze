@@ -42,30 +42,30 @@ const CandidateCard: React.FC<CandidateCardProps> = ({ candidate, index, onClick
       animate="visible"
       whileHover="hover"
       onClick={onClick}
-      className="cursor-pointer" // Removed h-full
+      className="cursor-pointer"
     >
-      <NeonCard className="w-full flex flex-col justify-between"> {/* Removed h-full */}
+      <NeonCard className="w-full flex flex-col justify-between p-4">
         <div>
-          <NeonCardHeader>
+          <NeonCardHeader className="pb-2">
             <div className="flex justify-between items-start gap-2">
-              <NeonCardTitle className="flex-grow min-w-0 text-lg"> {/* Reduced font size */}
+              <NeonCardTitle className="flex-grow min-w-0 text-md">
                 {candidate.name}
               </NeonCardTitle>
               <Badge 
                 variant="outline" 
                 className={cn(
-                  "text-base px-2 py-0.5 border-primary text-primary bg-primary/10", // Made badge more compact
+                  "text-sm px-2 py-0.5 border-primary text-primary bg-primary/10",
                   "shadow-neon-glow-sm flex-shrink-0"
                 )}
               >
                 {candidate.matchScore}/10
               </Badge>
             </div>
-            <NeonCardDescription className="text-sm text-muted-foreground truncate">
+            <NeonCardDescription className="text-xs text-muted-foreground truncate">
               {candidate.email}
             </NeonCardDescription>
           </NeonCardHeader>
-          <NeonCardContent className="space-y-3">
+          <NeonCardContent className="space-y-2">
             {candidate.suggestedRole && (
               <div>
                 <h4 className="font-semibold text-xs mb-1 text-primary/80">Suggested Role</h4>
@@ -78,13 +78,13 @@ const CandidateCard: React.FC<CandidateCardProps> = ({ candidate, index, onClick
                 {candidate.skills.slice(0, 3).map((skill, skillIndex) => (
                   <Badge key={skillIndex} variant="secondary" className="text-xs">{skill}</Badge>
                 ))}
-                {candidate.skills.length > 3 && <Badge variant="outline">+{candidate.skills.length - 3} more</Badge>}
+                {candidate.skills.length > 3 && <Badge variant="outline" className="text-xs">+{candidate.skills.length - 3} more</Badge>}
               </div>
             </div>
           </NeonCardContent>
         </div>
-        <div className="p-6 pt-2 flex justify-end items-center text-primary text-sm font-semibold">
-          View Details <ArrowRight className="ml-2 h-4 w-4" />
+        <div className="p-0 pt-2 flex justify-end items-center text-primary text-xs font-semibold">
+          View Details <ArrowRight className="ml-1 h-3 w-3" />
         </div>
       </NeonCard>
     </MotionDiv>
