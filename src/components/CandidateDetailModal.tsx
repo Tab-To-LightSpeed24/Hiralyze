@@ -31,17 +31,20 @@ Resume File: ${candidate.resumeFileName}
 Match Score: ${candidate.matchScore}/10
 Suggested Role: ${candidate.suggestedRole || 'N/A'}
 
-Skills:
+Justification:
+${candidate.justification}
+
+Technical Skills:
 ${candidate.skills.map(s => `- ${s}`).join('\n')}
 
 Experience:
 ${candidate.experience.map(e => `- ${e.title} at ${e.company} (${e.startDate} - ${e.endDate}): ${e.description.join(' ')}`).join('\n')}
 
+Projects:
+${candidate.projects?.map(p => `- ${p.title}: ${p.description}`).join('\n') || 'N/A'}
+
 Education:
 ${candidate.education.map(e => `- ${e.degree} from ${e.institution} (${e.startDate} - ${e.endDate})${e.gpa ? ` - GPA: ${e.gpa}` : ''}`).join('\n')}
-
-Justification:
-${candidate.justification}
     `.trim();
     navigator.clipboard.writeText(details)
       .then(() => showSuccess("Candidate details copied to clipboard!"))
@@ -80,40 +83,52 @@ ${candidate.justification}
             <p className="text-sm text-muted-foreground break-words">{candidate.justification}</p>
           </div>
           <div>
-            <h4 className="font-semibold mb-2 text-primary text-neon-glow">Skills:</h4>
+            <h4 className="font-semibold mb-2 text-primary text-neon-glow">Technical Skills:</h4>
             <div className="flex flex-wrap gap-2">
-              {candidate.skills.map((skill, skillIndex) => (
+              {candidate.skills.length > 0 ? candidate.skills.map((skill, skillIndex) => (
                 <Badge key={skillIndex} variant="outline" className="border-primary/50 text-muted-foreground bg-secondary/20 break-words">{skill}</Badge>
-              ))}
+              )) : <p className="text-sm text-muted-foreground">N/A</p>}
             </div>
           </div>
           <div>
             <h4 className="font-semibold mb-2 text-primary text-neon-glow">Experience:</h4>
-            <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 break-words">
-              {candidate.experience.map((exp, expIndex) => (
-                <li key={expIndex}>
-                  <span className="font-medium text-foreground">{exp.title}</span> at {exp.company} ({exp.startDate} - {exp.endDate})
-                  {exp.description && exp.description.length > 0 && (
-                    <ul className="list-circle list-inside ml-4 text-xs">
-                      {exp.description.map((desc, descIndex) => (
-                        <li key={descIndex}>{desc}</li>
-                      ))}
-                    </ul>
-                  )}
-                </li>
-              ))}
-            </ul>
+            {candidate.experience.length > 0 ? (
+              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 break-words">
+                {candidate.experience.map((exp, expIndex) => (
+                  <li key={expIndex}>
+                    <span className="font-medium text-foreground">{exp.title}</span>
+                    <p className="text-xs text-muted-foreground/80">{exp.description.join(' ')}</p>
+                  </li>
+                ))}
+              </ul>
+            ) : <p className="text-sm text-muted-foreground">N/A</p>}
           </div>
+          {candidate.projects && candidate.projects.length > 0 && (
+            <div>
+              <h4 className="font-semibold mb-2 text-primary text-neon-glow">Projects:</h4>
+              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 break-words">
+                {candidate.projects.map((proj, projIndex) => (
+                  <li key={projIndex}>
+                    <span className="font-medium text-foreground">{proj.title}</span>
+                    <p className="text-xs text-muted-foreground/80 mt-1">{proj.description}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div>
             <h4 className="font-semibold mb-2 text-primary text-neon-glow">Education:</h4>
-            <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 break-words">
-              {candidate.education.map((edu, eduIndex) => (
-                <li key={eduIndex}>
-                  <span className="font-medium text-foreground">{edu.degree}</span> from {edu.institution} ({edu.startDate} - {edu.endDate})
-                  {edu.gpa && ` - GPA: ${edu.gpa}`}
-                </li>
-              ))}
-            </ul>
+            {candidate.education.length > 0 ? (
+              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 break-words">
+                {candidate.education.map((edu, eduIndex) => (
+                  <li key={eduIndex}>
+                    <span className="font-medium text-foreground">{edu.degree}</span> from {edu.institution}
+                    {edu.gpa && ` - GPA: ${edu.gpa}`}
+                    <p className="text-xs text-muted-foreground/80">{edu.startDate} - {edu.endDate}</p>
+                  </li>
+                ))}
+              </ul>
+            ) : <p className="text-sm text-muted-foreground">N/A</p>}
           </div>
         </div>
         <DialogFooter>
