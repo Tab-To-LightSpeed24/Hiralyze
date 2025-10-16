@@ -384,30 +384,34 @@ const ROLE_KEYWORDS: { [key: string]: string[] } = {
 const parseSkills = (text: string): string[] => {
     if (!text) return [];
     const skills = new Set<string>();
-    const lines = text.split('\n');
+    // Pre-cleanup: remove bullet points, replace colons with commas for easier splitting
+    const cleanedText = text.replace(/•/g, ',').replace(/:/g, ',');
+    const lines = cleanedText.split('\n');
+
     lines.forEach(line => {
-        // Remove bullet points and subheadings like "Languages:", "Tools & Collaboration:"
-        const cleanedLine = line.replace(/•/g, '').replace(/^[a-zA-Z\s&]+:/, '').trim();
-        // Split by comma or multiple spaces (for lists without commas)
-        const parts = cleanedLine.split(/, |  +/).map(s => s.trim());
+        const parts = line.split(/, |; | \| /).map(s => s.trim()); // Split by comma, semicolon, or pipe
         parts.forEach(part => {
-            if (part && part.length > 1 && part.length < 50) {
+            // Filter out empty strings, overly long "skills" that are likely sentences, and non-skill text
+            if (part && part.length > 1 && part.length < 35 && !/institute|university|college|gpa|cgpa/i.test(part)) {
                 skills.add(part);
             }
         });
     });
-    return Array.from(skills);
+    // Final cleanup for common artifacts
+    return Array.from(skills).map(s => s.replace(/[.:]$/, '').trim()).filter(Boolean);
 };
 
 const parseEducation = (text: string): EducationEntry[] => {
     if (!text) return [];
     const entries: EducationEntry[] = [];
-    // Split education section into blocks, assuming a blank line separates entries
+    // Split education section into blocks, assuming a blank line or a new institution name starts a new entry
     const blocks = text.split(/\n\s*\n/);
 
     blocks.forEach(block => {
-        const lines = block.split('\n').filter(Boolean);
+        const lines = block.split('\n').filter(line => line.trim().length > 2);
         if (lines.length === 0) return;
+
+        const fullBlockText = lines.join(' ');
 
         const entry: EducationEntry = {
             institution: 'N/A',
@@ -417,21 +421,20 @@ const parseEducation = (text: string): EducationEntry[] => {
             description: lines,
         };
 
-        const gpaMatch = block.match(/(?:CGPA|gpa|percentage)[\s:]*(\d+\.?\d*)/i);
-        if (gpaMatch) {
-            entry.gpa = parseFloat(gpaMatch[1]);
-        }
+        const gpaMatch = fullBlockText.match(/(?:CGPA|gpa|percentage)[\s:]*(\d+\.?\d*)/i);
+        if (gpaMatch) entry.gpa = parseFloat(gpaMatch[1]);
 
-        const dateMatch = block.match(/(\w+\s+\d{4})\s*–\s*(\w+\s+\d{4}|\w+)|(\d{4})\s*-\s*(\d{4})|(\d{4})/);
+        const dateMatch = fullBlockText.match(/(\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b\s+\d{4})\s*[-–—to\s]*(\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b\s+\d{4}|\bPresent\b)|(\d{4})\s*[-–—to\s]*(\d{4}|\bPresent\b)/i);
         if (dateMatch) {
-            entry.startDate = dateMatch[1] || dateMatch[3] || dateMatch[5] || 'N/A';
+            entry.startDate = dateMatch[1] || dateMatch[3] || 'N/A';
             entry.endDate = dateMatch[2] || dateMatch[4] || 'Present';
         }
-        
-        entry.institution = lines[0].split('|')[0].split(',')[0].trim();
-        entry.degree = lines[0].split('|')[1]?.split(',')[0].trim() || 'Details in description';
 
-        entries.push(entry);
+        entry.institution = lines[0].split(/\||,/)[0].trim();
+        const degreeLine = lines.find(l => /b\.tech|bachelor|master|grade|examination/i.test(l)) || lines.join(' ');
+        entry.degree = degreeLine.split(/\||,/)[0].replace(/CGPA.*/i, '').trim();
+
+        if (entry.institution && entry.degree) entries.push(entry);
     });
     return entries;
 };
@@ -439,24 +442,21 @@ const parseEducation = (text: string): EducationEntry[] => {
 const parseExperienceAndProjects = (text: string): (ExperienceEntry | ProjectEntry)[] => {
     if (!text) return [];
     const entries: (ExperienceEntry | ProjectEntry)[] = [];
-    // Split by one or more blank lines, which typically separate entries
-    const blocks = text.split(/\n\s*\n+/);
+    // Split by two or more blank lines, a stronger separator for distinct entries
+    const blocks = text.split(/\n\s*\n\s*\n*/);
 
     blocks.forEach(block => {
         const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
-        if (lines.length === 0) return;
+        if (lines.length < 2) return;
 
         const title = lines[0].replace(/Link to (Github|Website)/i, '').trim();
-        const description = lines.slice(1).map(l => l.replace(/^•\s*/, ''));
+        const description = lines.slice(1)
+            .map(l => l.replace(/^•\s*/, ''))
+            .filter(l => l.length > 15); // Heuristic: filter out short metadata lines
 
-        entries.push({
-            title,
-            description,
-            company: 'N/A',
-            startDate: 'N/A',
-            endDate: 'N/A',
-            technologies: [],
-        });
+        if (title && description.length > 0) {
+            entries.push({ title, description, company: 'N/A', startDate: 'N/A', endDate: 'N/A' });
+        }
     });
     return entries;
 };
@@ -475,11 +475,9 @@ const parseResumeText = (resumeText: string, fileName: string): Omit<Candidate, 
     const headerRegex: { [key: string]: RegExp } = {
         skills: /^(technical\s+)?skills|proficiencies/i,
         experience: /^experience|work\s+(history|experience)/i,
-        projects: /^projects/i,
+        projects: /^projects|personal projects/i,
         education: /^education|academic/i,
-        summary: /^summary|objective/i,
-        certifications: /^certifications/i,
-        languages: /^languages/i,
+        certifications: /^certifications|courses/i,
     };
 
     lines.forEach(line => {
@@ -488,7 +486,6 @@ const parseResumeText = (resumeText: string, fileName: string): Omit<Candidate, 
 
         let matchedSection: string | null = null;
         for (const [section, regex] of Object.entries(headerRegex)) {
-            // Check if the line IS a header (and not much else)
             if (regex.test(trimmedLine) && trimmedLine.length < 30) {
                 matchedSection = section;
                 break;
@@ -530,25 +527,21 @@ const Index = () => {
 
   // Function to analyze candidate match based on structured data
   const analyzeCandidateMatch = (candidate: Candidate, jobDescription: string): Candidate => {
-    let matchScore = 1; // Default to 1 (not shortlisted)
+    let matchScore = 1;
     let justification = "";
-    let scoreReasoning: string[] = [];
     let isShortlisted = true;
 
     const jobDescriptionLower = jobDescription.toLowerCase();
-    const candidateSkillsLower = candidate.skills.map(s => s.toLowerCase());
     const candidateTextLower = [...candidate.experience.flatMap(e => [e.title, ...e.description]), ...candidate.projects.flatMap(p => [p.title, ...p.description])].join(' ').toLowerCase();
+    const candidateFullText = (candidate.skills.join(' ') + ' ' + candidateTextLower).toLowerCase();
 
-    // --- JD Parsing and Criteria Extraction ---
-    let jdPrimaryRole: string | undefined;
     let jdPrimaryRoleKeywords: string[] = [];
     for (const role in ROLE_KEYWORDS) {
-      const roleParts = role.toLowerCase().split(/\s*\/\s*|\s+and\s+/);
-      if (roleParts.some(part => jobDescriptionLower.includes(part) && part.length > 3)) {
-        jdPrimaryRole = role;
-        jdPrimaryRoleKeywords = ROLE_KEYWORDS[role].map(k => k.toLowerCase());
-        break;
-      }
+        const roleParts = role.toLowerCase().split(/\s*\/\s*|\s+and\s+/).map(p => p.trim());
+        if (roleParts.some(part => jobDescriptionLower.includes(part) && part.length > 3)) {
+            jdPrimaryRoleKeywords = ROLE_KEYWORDS[role].map(k => k.toLowerCase());
+            break;
+        }
     }
 
     const explicitKeywordsMatch = jobDescription.match(/(?:skills|requirements|proficient in|technologies|must have|experience with):?\s*([\s\S]+?)(?:\n\n|\n\s*(?:responsibilities|about the role|qualifications|education)|$)/i);
@@ -556,115 +549,73 @@ const Index = () => {
                                 .map(s => s.trim().toLowerCase())
                                 .filter(Boolean) || [];
     
-    const jdKeywordsToMatch = new Set<string>([...jdPrimaryRoleKeywords, ...explicitKeywords]);
-    
-    if (!jdPrimaryRole && jdKeywordsToMatch.size < 5) {
-        const allRoleKeywordsFlat = Object.values(ROLE_KEYWORDS).flat().map(k => k.toLowerCase());
-        allRoleKeywordsFlat.forEach(keyword => {
-            if (new RegExp(`\\b${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(jobDescriptionLower)) {
-                jdKeywordsToMatch.add(keyword);
-            }
-        });
+    const finalJdKeywords = Array.from(new Set([...jdPrimaryRoleKeywords, ...explicitKeywords]));
+    const totalRelevantKeywords = finalJdKeywords.length;
+
+    if (totalRelevantKeywords === 0) {
+        return { ...candidate, matchScore: 1, justification: "Cannot shortlist: Could not determine key requirements from the job description." };
     }
-    const finalJdKeywords = Array.from(jdKeywordsToMatch);
+
+    let matchedKeywordsCount = 0;
+    const matchedKeywords = new Set<string>();
+    finalJdKeywords.forEach(keyword => {
+        const regex = new RegExp(`\\b${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+        if (regex.test(candidateFullText)) {
+            matchedKeywordsCount++;
+            matchedKeywords.add(keyword);
+        }
+    });
+
+    const matchPercentage = (matchedKeywordsCount / totalRelevantKeywords) * 100;
+    const SHORTLISTING_THRESHOLD_PERCENT = 15;
 
     const jdCriteria = {
       minUGCGPA: parseFloat(jobDescription.match(/UG min CGPA (\d+\.?\d*)/i)?.[1] || '0'),
-      zeroExperienceCandidatesOnly: jobDescriptionLower.includes("zero experience candidates only") || jobDescriptionLower.includes("freshers only"),
-      minExperienceYears: parseFloat(jobDescription.match(/(\d+)\+?\s*years?\s*experience/i)?.[1] || '0'),
+      zeroExperienceCandidatesOnly: /zero experience|freshers only/i.test(jobDescriptionLower),
     };
 
-    // --- Initial Shortlisting Check & Justification ---
-    if (finalJdKeywords.length === 0) {
-        isShortlisted = false;
-        justification = "Cannot shortlist: No relevant technical keywords could be identified from the job description.";
-        scoreReasoning.push("No JD keywords identified.");
-    } else {
-        let matchedJdKeywordsCount = 0;
-        finalJdKeywords.forEach(keyword => {
-            if (candidateSkillsLower.includes(keyword) || candidateTextLower.includes(keyword)) matchedJdKeywordsCount++;
-        });
-
-        if (matchedJdKeywordsCount < 10) { 
-            isShortlisted = false;
-            justification = `Candidate is not shortlisted. Only ${matchedJdKeywordsCount} out of ${finalJdKeywords.length} key skills/keywords from the job description were found in the resume. A minimum of 10 keywords are required for shortlisting.`;
-            scoreReasoning.push(`Low JD keyword match (${matchedJdKeywordsCount}/${finalJdKeywords.length}).`);
-        } else {
-            scoreReasoning.push(`${matchedJdKeywordsCount}/${finalJdKeywords.length} JD keywords matched.`);
-        }
-    }
-
     if (jdCriteria.minUGCGPA > 0) {
-        const candidateUGCGPA = candidate.education.find(edu => edu.degree.toLowerCase().includes("bachelor") || edu.degree.toLowerCase().includes("ug"))?.gpa || 0;
-        if (candidateUGCGPA === 0) {
-            isShortlisted = false;
-            justification = `Candidate is not shortlisted. Job requires a minimum UG CGPA of ${jdCriteria.minUGCGPA}, but no CGPA was found in the resume.`;
-            scoreReasoning.push("Missing UG CGPA.");
-        } else if (candidateUGCGPA < jdCriteria.minUGCGPA) {
+        const candidateUGCGPA = candidate.education.find(edu => /bachelor|b\.tech/i.test(edu.degree))?.gpa || 0;
+        if (candidateUGCGPA < jdCriteria.minUGCGPA) {
             isShortlisted = false;
             justification = `Candidate is not shortlisted. UG CGPA (${candidateUGCGPA}) is below the required ${jdCriteria.minUGCGPA}.`;
-            scoreReasoning.push(`UG CGPA (${candidateUGCGPA}) below required ${jdCriteria.minUGCGPA}.`);
-        } else {
-            scoreReasoning.push(`UG CGPA (${candidateUGCGPA}) meets requirement.`);
         }
-        candidate.ugCgpa = candidateUGCGPA;
     }
 
-    const hasProfessionalExperience = candidate.experience.some(exp => !exp.title.toLowerCase().includes("project") && !exp.title.toLowerCase().includes("academic"));
-    if (jdCriteria.zeroExperienceCandidatesOnly && hasProfessionalExperience) {
+    if (isShortlisted && jdCriteria.zeroExperienceCandidatesOnly && candidate.experience.length > 0) {
         isShortlisted = false;
-        justification = `Candidate is not shortlisted. Job requires zero experience candidates only, but professional experience was found in the resume.`;
-        scoreReasoning.push("Professional experience found, but JD requires zero experience.");
-    } else if (jdCriteria.minExperienceYears > 0 && !hasProfessionalExperience) {
+        justification = `Candidate is not shortlisted. Job requires zero experience, but professional experience was found.`;
+    }
+
+    if (isShortlisted && matchPercentage < SHORTLISTING_THRESHOLD_PERCENT) {
         isShortlisted = false;
-        justification = `Candidate is not shortlisted. Job requires at least ${jdCriteria.minExperienceYears} years of experience, but no professional experience was clearly identified.`;
-        scoreReasoning.push(`Missing required ${jdCriteria.minExperienceYears}+ years experience.`);
-    } else if (jdCriteria.minExperienceYears > 0 && hasProfessionalExperience) {
-        scoreReasoning.push(`Professional experience identified.`);
+        justification = `Candidate is not shortlisted. Matched only ${Math.round(matchPercentage)}% of key skills, which is below the ${SHORTLISTING_THRESHOLD_PERCENT}% threshold.`;
     }
 
     if (isShortlisted) {
-        matchScore = 5;
-        let matchedJdKeywordsCount = 0;
-        finalJdKeywords.forEach(keyword => {
-            if (candidateSkillsLower.includes(keyword) || candidateTextLower.includes(keyword)) matchedJdKeywordsCount++;
-        });
-        matchScore += Math.min(3, Math.floor(matchedJdKeywordsCount / Math.max(1, finalJdKeywords.length) * 5));
-
-        let relevantExperienceCount = 0;
-        candidate.experience.forEach(expEntry => {
-            const expLower = `${expEntry.title} ${expEntry.description.join(' ')}`.toLowerCase();
-            if (finalJdKeywords.some(keyword => expLower.includes(keyword))) relevantExperienceCount++;
-        });
-        candidate.projects?.forEach(projEntry => {
-            const projLower = `${projEntry.title} ${projEntry.description} ${projEntry.technologies?.join(' ')}`.toLowerCase();
-            if (finalJdKeywords.some(keyword => projLower.includes(keyword))) relevantExperienceCount++;
-        });
-        matchScore += Math.min(2, Math.floor(relevantExperienceCount / Math.max(1, candidate.experience.length + (candidate.projects?.length || 0)) * 3));
-
-        if (jdCriteria.minUGCGPA > 0 && (candidate.ugCgpa || 0) >= jdCriteria.minUGCGPA) matchScore += 1;
-
-        matchScore = Math.min(10, Math.max(1, matchScore));
-        justification = `This candidate received a score of ${matchScore}/10. Reasoning: ${scoreReasoning.join(" ")}.`;
+        matchScore = 4; // Base score
+        matchScore += Math.min(5, Math.floor(matchPercentage / 15)); // Up to 5 points for skills
+        if (jdCriteria.minUGCGPA > 0) matchScore += 1; // Bonus for CGPA
+        matchScore = Math.min(10, Math.round(matchScore));
+        justification = `Candidate is shortlisted with a score of ${matchScore}/10. Matched ${Math.round(matchPercentage)}% of key requirements. Top skills include: ${Array.from(matchedKeywords).slice(0, 4).join(', ')}.`;
     } else {
-        matchScore = 1;
-        if (!justification) justification = "Candidate did not meet the minimum shortlisting criteria.";
+        matchScore = Math.max(1, Math.round(matchPercentage / 10));
+        if (!justification) justification = `Candidate is not shortlisted. Matched only ${Math.round(matchPercentage)}% of key skills, below the ${SHORTLISTING_THRESHOLD_PERCENT}% threshold.`;
     }
     
     let bestRoleMatchCount = 0;
     let potentialSuggestedRole = "Generalist / Entry-Level";
-    const allCandidateKeywords = new Set([...candidateSkillsLower, ...candidateTextLower.split(' ')]);
-
     for (const role in ROLE_KEYWORDS) {
         let currentRoleMatchCount = 0;
         ROLE_KEYWORDS[role].forEach(keyword => {
-            if (allCandidateKeywords.has(keyword.toLowerCase())) currentRoleMatchCount++;
+            if (candidateFullText.includes(keyword.toLowerCase())) currentRoleMatchCount++;
         });
         if (currentRoleMatchCount > bestRoleMatchCount) {
             bestRoleMatchCount = currentRoleMatchCount;
             potentialSuggestedRole = role;
         }
     }
+    
     candidate.suggestedRole = potentialSuggestedRole;
     candidate.matchScore = matchScore;
     candidate.justification = justification;
@@ -677,18 +628,12 @@ const Index = () => {
     
     const processedCandidates = resumeFilesData.map(resumeData => {
         const parsedData = parseResumeText(resumeData.resumeText, resumeData.fileName);
-        
-        const candidateForAnalysis: Candidate = {
-            ...parsedData,
-            matchScore: 0,
-            justification: '',
-        };
-
+        const candidateForAnalysis: Candidate = { ...parsedData, matchScore: 0, justification: '' };
         return analyzeCandidateMatch(candidateForAnalysis, jobDescription);
     });
 
-    setShortlistedCandidates(processedCandidates.filter(c => c.matchScore > 1));
-    setNotShortlistedCandidates(processedCandidates.filter(c => c.matchScore === 1));
+    setShortlistedCandidates(processedCandidates.filter(c => c.matchScore > 3 && c.justification.includes('shortlisted')));
+    setNotShortlistedCandidates(processedCandidates.filter(c => c.matchScore <= 3 || !c.justification.includes('shortlisted')));
     
     setProcessing(false);
     return processedCandidates;
@@ -696,12 +641,7 @@ const Index = () => {
 
   const containerVariants = {
     hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.2,
-      },
-    },
+    visible: { opacity: 1, transition: { staggerChildren: 0.2 } },
   };
 
   const itemVariants = {
