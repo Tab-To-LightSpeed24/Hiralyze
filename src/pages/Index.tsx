@@ -386,7 +386,7 @@ const splitResumeIntoSections = (text: string): { [key: string]: string } => {
     const lines = text.split('\n');
     
     const headerKeywords: { [key: string]: string[] } = {
-        skills: ['skills', 'proficiencies', 'technical skills'],
+        skills: ['skills', 'proficiencies', 'technical skills', 'technical expertise'],
         experience: ['experience', 'work experience', 'employment history', 'professional experience'],
         projects: ['projects', 'personal projects', 'academic projects'],
         education: ['education', 'academic background', 'academic profile'],
@@ -423,14 +423,14 @@ const splitResumeIntoSections = (text: string): { [key: string]: string } => {
 const parseSkills = (text: string): string[] => {
     if (!text) return [];
     const skills = new Set<string>();
-    const stopWords = new Set(['and', 'in', 'the', 'with', 'for', 'of', 'a', 'an', 'experience', 'projects', 'education', 'skills', 'technical', 'languages', 'tools', 'concepts', 'technologies', 'collaboration', 'vellore', 'chennai', 'tamilnadu', 'india', 'full-stack development', 'ai/ml', 'computer vision & audio', 'tools & collaboration', 'programming']);
+    const stopWords = new Set(['and', 'in', 'the', 'with', 'for', 'of', 'a', 'an', 'experience', 'projects', 'education', 'skills', 'technical', 'languages', 'tools', 'concepts', 'technologies', 'collaboration', 'vellore', 'chennai', 'tamilnadu', 'india', 'b. tech', 'cgpa', 'percentage', 'school', 'college', 'university', 'institute', 'grade']);
     
     const cleanedText = text.replace(/•|:|\[|\]/g, ',').replace(/\(|\)/g, ',');
     
     const parts = cleanedText.split(/, |\n|; | \| /).map(s => s.trim());
     parts.forEach(part => {
         const lowerPart = part.toLowerCase();
-        if (part && part.length > 1 && part.length < 30 && !/^\d+$/.test(part) && !stopWords.has(lowerPart) && !/cgpa|gpa|percentage/i.test(part) && !/\d{4}/.test(part)) {
+        if (part && part.length > 1 && part.length < 30 && !/^\d+$/.test(part) && !stopWords.has(lowerPart) && !/cgpa|gpa|percentage/i.test(part) && !/\d{4}/.test(part) && !/present/i.test(part)) {
             skills.add(part.replace(/[.,]$/, ''));
         }
     });
@@ -501,14 +501,15 @@ const parseResumeText = (resumeText: string, fileName: string): Omit<Candidate, 
     const sections = splitResumeIntoSections(resumeText);
 
     let skills = parseSkills(sections.skills || '');
-    if (skills.length === 0) { // If no skills section, infer from the whole text
+    if (skills.length < 5) {
         const allKeywords = new Set(Object.values(ROLE_KEYWORDS).flat());
-        const inferredSkills = new Set<string>();
+        const inferredSkills = new Set<string>(skills);
         allKeywords.forEach(keyword => {
             const pattern = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const regex = new RegExp(`\\b${pattern}\\b`, 'i');
             if (regex.test(resumeText)) {
-                inferredSkills.add(keyword);
+                const originalCaseKeyword = Object.values(ROLE_KEYWORDS).flat().find(k => k.toLowerCase() === keyword.toLowerCase());
+                if(originalCaseKeyword) inferredSkills.add(originalCaseKeyword);
             }
         });
         skills = Array.from(inferredSkills);
@@ -533,7 +534,7 @@ const Index = () => {
   const [notShortlistedCandidates, setNotShortlistedCandidates] = useState<Candidate[]>([]);
   const [processing, setProcessing] = useState<boolean>(false);
 
-  const analyzeCandidateMatch = (candidate: Candidate, jobDescription: string): Candidate => {
+  const analyzeCandidateMatch = (candidate: Candidate, jobDescription: string): Candidate & { isShortlisted: boolean } => {
     let matchScore = 1;
     let justification = "";
 
@@ -554,7 +555,7 @@ const Index = () => {
     const totalRelevantKeywords = finalJdKeywords.length;
 
     if (totalRelevantKeywords === 0) {
-        return { ...candidate, matchScore: 1, justification: "Cannot evaluate: Could not determine key requirements from the job description." };
+        return { ...candidate, matchScore: 1, justification: "Cannot evaluate: Could not determine key requirements from the job description.", isShortlisted: false };
     }
 
     const matchedKeywords = new Set<string>();
@@ -567,25 +568,26 @@ const Index = () => {
     });
 
     const matchPercentage = totalRelevantKeywords > 0 ? (matchedKeywords.size / totalRelevantKeywords) * 100 : 0;
+    const roundedMatchPercentage = Math.round(matchPercentage);
     const SHORTLISTING_THRESHOLD_PERCENT = 15;
 
-    let isShortlisted = matchPercentage >= SHORTLISTING_THRESHOLD_PERCENT;
+    const isShortlisted = roundedMatchPercentage >= SHORTLISTING_THRESHOLD_PERCENT;
 
     if (isShortlisted) {
-        let score = 5.0; // Base score for meeting the threshold
-        score += (matchPercentage - SHORTLISTING_THRESHOLD_PERCENT) / 4; // More generous score increase
+        let score = 5.0;
+        score += (roundedMatchPercentage - SHORTLISTING_THRESHOLD_PERCENT) / 4;
         
         const relevantProjectsCount = [...candidate.experience, ...candidate.projects].filter(p => {
             const projectText = `${p.title} ${p.description.join(' ')}`.toLowerCase();
             return Array.from(matchedKeywords).some(k => projectText.includes(k));
         }).length;
-        score += Math.min(2, relevantProjectsCount * 0.5);
+        score += Math.min(3, relevantProjectsCount * 0.75);
 
         matchScore = Math.min(10, Math.max(1, Math.round(score)));
-        justification = `Candidate is shortlisted with a score of ${matchScore}/10. Matched ${Math.round(matchPercentage)}% of key requirements.`;
+        justification = `Candidate is shortlisted with a score of ${matchScore}/10. Matched ${roundedMatchPercentage}% of key requirements.`;
     } else {
-        matchScore = Math.max(1, Math.round(matchPercentage / 10));
-        justification = `Candidate is not shortlisted. Matched only ${Math.round(matchPercentage)}% of key skills, which is below the ${SHORTLISTING_THRESHOLD_PERCENT}% threshold.`;
+        matchScore = Math.max(1, Math.round(roundedMatchPercentage / 10));
+        justification = `Candidate is not shortlisted. Matched only ${roundedMatchPercentage}% of key skills, which is below the ${SHORTLISTING_THRESHOLD_PERCENT}% threshold.`;
     }
     
     let bestRoleMatchCount = 0;
@@ -610,9 +612,9 @@ const Index = () => {
     candidate.justification = justification;
     candidate.matchedKeywords = Array.from(matchedKeywords);
     candidate.totalKeywords = totalRelevantKeywords;
-    candidate.matchPercentage = Math.round(matchPercentage);
+    candidate.matchPercentage = roundedMatchPercentage;
 
-    return candidate;
+    return { ...candidate, isShortlisted };
   };
 
   const handleProcessResumes = async (jobDescription: string, resumeFilesData: { fileName: string, resumeText: string }[]): Promise<Candidate[]> => {
@@ -624,8 +626,8 @@ const Index = () => {
         return analyzeCandidateMatch(candidateForAnalysis, jobDescription);
     });
 
-    setShortlistedCandidates(processedCandidates.filter(c => c.justification.includes('shortlisted')));
-    setNotShortlistedCandidates(processedCandidates.filter(c => !c.justification.includes('shortlisted')));
+    setShortlistedCandidates(processedCandidates.filter(c => c.isShortlisted));
+    setNotShortlistedCandidates(processedCandidates.filter(c => !c.isShortlisted));
     
     setProcessing(false);
     return processedCandidates;
