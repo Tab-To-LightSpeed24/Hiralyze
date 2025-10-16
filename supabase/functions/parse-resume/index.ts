@@ -1,11 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-// Use the legacy build of pdfjs-dist to avoid worker issues in Deno
-import { getDocument, GlobalWorkerOptions } from 'https://esm.sh/pdfjs-dist@4.5.136/legacy/build/pdf.mjs';
-
-// COMBINED FIX:
-// 1. Set the global worker source to a valid CDN path to pass the library's initial check.
-GlobalWorkerOptions.workerSrc = 'https://esm.sh/pdfjs-dist@4.5.136/build/pdf.worker.mjs';
+// Switched to a Deno-native PDF parsing library to resolve the persistent worker-related errors.
+import { readPdfText } from "https://deno.land/x/pdf@2.0.0/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -49,16 +45,8 @@ serve(async (req) => {
     // Decode Base64 PDF data
     const pdfBuffer = Uint8Array.from(atob(resumeBase64), c => c.charCodeAt(0));
 
-    // --- Parse PDF using the legacy build and explicitly disabling the worker ---
-    // COMBINED FIX: 2. Also explicitly disable the worker in the function call.
-    const doc = await getDocument({ data: pdfBuffer, disableWorker: true }).promise;
-    let resumeText = '';
-    for (let i = 1; i <= doc.numPages; i++) {
-        const page = await doc.getPage(i);
-        const content = await page.getTextContent();
-        // Join all text items with a space and add a newline for each page
-        resumeText += content.items.map((item: any) => item.str).join(' ') + '\n'; 
-    }
+    // --- Parse PDF using the new Deno-native library ---
+    const resumeText = await readPdfText(pdfBuffer);
     // --- End PDF parsing ---
 
     // 1. Construct a detailed prompt for the LLM
