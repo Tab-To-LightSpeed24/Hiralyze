@@ -1,7 +1,11 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-// Switched to a Deno-native PDF parsing library to resolve the persistent worker-related errors.
-import { readPdfText } from "https://deno.land/x/pdf@2.0.0/mod.ts";
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/+esm';
+
+// Switched from esm.sh to jsdelivr CDN to resolve module bundling issues.
+import { getDocument, GlobalWorkerOptions } from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/legacy/build/pdf.mjs';
+
+// Set the worker source to the jsdelivr CDN as well.
+GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pdf.worker.mjs';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -45,9 +49,14 @@ serve(async (req) => {
     // Decode Base64 PDF data
     const pdfBuffer = Uint8Array.from(atob(resumeBase64), c => c.charCodeAt(0));
 
-    // --- Parse PDF using the new Deno-native library ---
-    const resumeText = await readPdfText(pdfBuffer);
-    // --- End PDF parsing ---
+    // Use the legacy build and explicitly disable the worker as a safeguard.
+    const doc = await getDocument({ data: pdfBuffer, disableWorker: true }).promise;
+    let resumeText = '';
+    for (let i = 1; i <= doc.numPages; i++) {
+        const page = await doc.getPage(i);
+        const content = await page.getTextContent();
+        resumeText += content.items.map((item: any) => item.str).join(' ') + '\n'; 
+    }
 
     // 1. Construct a detailed prompt for the LLM
     const prompt = `
@@ -129,10 +138,10 @@ serve(async (req) => {
         'Authorization': `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o', // Or 'gpt-3.5-turbo', 'gemini-pro', etc.
+        model: 'gpt-4o',
         messages: [{ role: 'user', content: prompt }],
-        response_format: { type: "json_object" }, // Request JSON output
-        temperature: 0.2, // Keep it low for factual extraction
+        response_format: { type: "json_object" },
+        temperature: 0.2,
       }),
     });
 
@@ -152,11 +161,10 @@ serve(async (req) => {
     let parsedCandidateData;
     try {
       parsedCandidateData = JSON.parse(llmOutput);
-      // Generate a unique ID for the candidate
       parsedCandidateData.id = `cand-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
       parsedCandidateData.resumeFileName = resumeFileName;
-      parsedCandidateData.matchScore = 0; // Initialize, will be computed on frontend
-      parsedCandidateData.justification = ""; // Initialize, will be computed on frontend
+      parsedCandidateData.matchScore = 0;
+      parsedCandidateData.justification = "";
     } catch (jsonError) {
       console.error('Failed to parse LLM JSON output:', llmOutput, jsonError);
       return new Response(JSON.stringify({ error: 'Failed to parse LLM output', details: llmOutput }), {
