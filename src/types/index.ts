@@ -14,6 +14,10 @@ export interface Candidate {
   resumeFileName: string;
   suggestedRole?: string;
   ugCgpa?: number;
+  // New fields for scoring transparency
+  matchedKeywords?: string[];
+  totalKeywords?: number;
+  matchPercentage?: number;
 }
 
 export interface ExperienceEntry {

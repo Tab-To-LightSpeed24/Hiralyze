@@ -13,6 +13,7 @@ import { Candidate } from '@/types';
 import { cn } from '@/lib/utils';
 import { Copy } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
+import { Separator } from '@/components/ui/separator';
 
 interface CandidateDetailModalProps {
   candidate: Candidate | null;
@@ -83,9 +84,26 @@ ${candidate.education.map(e => `- ${e.degree} from ${e.institution} (${e.startDa
             </div>
           </div>
 
+          <Separator className="bg-primary/20" />
+
+          {/* Keyword Match Analysis */}
+          {candidate.matchedKeywords && (
+            <div>
+              <h4 className="font-semibold mb-2 text-primary text-neon-glow">Keyword Match Analysis:</h4>
+              <p className="text-sm text-muted-foreground mb-2">
+                Found <span className="font-bold text-primary">{candidate.matchedKeywords.length}</span> of <span className="font-bold text-primary">{candidate.totalKeywords}</span> relevant keywords ({candidate.matchPercentage}% match).
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {candidate.matchedKeywords.length > 0 ? candidate.matchedKeywords.map((skill, skillIndex) => (
+                  <Badge key={skillIndex} variant="secondary" className="break-words">{skill}</Badge>
+                )) : <p className="text-sm text-muted-foreground">No relevant keywords found.</p>}
+              </div>
+            </div>
+          )}
+
           {/* Technical Skills */}
           <div>
-            <h4 className="font-semibold mb-2 text-primary text-neon-glow">Technical Skills:</h4>
+            <h4 className="font-semibold mb-2 text-primary text-neon-glow">Parsed Technical Skills:</h4>
             <div className="flex flex-wrap gap-2">
               {candidate.skills.length > 0 ? candidate.skills.map((skill, skillIndex) => (
                 <Badge key={skillIndex} variant="outline" className="border-primary/50 text-muted-foreground bg-secondary/20 break-words">{skill}</Badge>

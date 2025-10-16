@@ -559,7 +559,7 @@ const Index = () => {
     const matchedKeywords = new Set<string>();
     finalJdKeywords.forEach(keyword => {
         const pattern = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const regex = new RegExp(`\\b${pattern}\\b`, 'i');
+        const regex = new RegExp(`(^|[^a-zA-Z0-9])${pattern}([^a-zA-Z0-9]|$)`, 'i');
         if (regex.test(candidateFullText)) {
             matchedKeywords.add(keyword);
         }
@@ -571,18 +571,17 @@ const Index = () => {
     let isShortlisted = matchPercentage >= SHORTLISTING_THRESHOLD_PERCENT;
 
     if (isShortlisted) {
-        let score = 4.0; // Base score for meeting the threshold
-        score += (matchPercentage - SHORTLISTING_THRESHOLD_PERCENT) / 10; // Add points for exceeding threshold
+        let score = 5.0; // Base score for meeting the threshold
+        score += (matchPercentage - SHORTLISTING_THRESHOLD_PERCENT) / 5; // Add points for exceeding threshold
         
-        // Bonus for relevant projects
         const relevantProjectsCount = [...candidate.experience, ...candidate.projects].filter(p => {
             const projectText = `${p.title} ${p.description.join(' ')}`.toLowerCase();
             return Array.from(matchedKeywords).some(k => projectText.includes(k));
         }).length;
-        score += Math.min(2, relevantProjectsCount); // Add up to 2 bonus points for relevant projects
+        score += Math.min(2, relevantProjectsCount * 0.5);
 
         matchScore = Math.min(10, Math.max(1, Math.round(score)));
-        justification = `Candidate is shortlisted with a score of ${matchScore}/10. Matched ${Math.round(matchPercentage)}% of key requirements. Top skills include: ${Array.from(matchedKeywords).slice(0, 4).join(', ')}.`;
+        justification = `Candidate is shortlisted with a score of ${matchScore}/10. Matched ${Math.round(matchPercentage)}% of key requirements.`;
     } else {
         matchScore = Math.max(1, Math.round(matchPercentage / 10));
         justification = `Candidate is not shortlisted. Matched only ${Math.round(matchPercentage)}% of key skills, which is below the ${SHORTLISTING_THRESHOLD_PERCENT}% threshold.`;
@@ -593,7 +592,11 @@ const Index = () => {
     for (const role in ROLE_KEYWORDS) {
         let currentRoleMatchCount = 0;
         ROLE_KEYWORDS[role].forEach(keyword => {
-            if (candidateFullText.includes(keyword.toLowerCase())) currentRoleMatchCount++;
+            const pattern = keyword.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`(^|[^a-zA-Z0-9])${pattern}([^a-zA-Z0-9]|$)`, 'i');
+            if (regex.test(candidateFullText)) {
+                currentRoleMatchCount++;
+            }
         });
         if (currentRoleMatchCount > bestRoleMatchCount) {
             bestRoleMatchCount = currentRoleMatchCount;
@@ -604,6 +607,9 @@ const Index = () => {
     candidate.suggestedRole = potentialSuggestedRole;
     candidate.matchScore = matchScore;
     candidate.justification = justification;
+    candidate.matchedKeywords = Array.from(matchedKeywords);
+    candidate.totalKeywords = totalRelevantKeywords;
+    candidate.matchPercentage = Math.round(matchPercentage);
 
     return candidate;
   };
