@@ -5,8 +5,8 @@ import { Candidate, ExperienceEntry, EducationEntry } from "@/types"; // Import 
 import { Separator } from "@/components/ui/separator";
 import { motion } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from '@/lib/utils'; // Corrected: Added 'from' keyword
-import { useSession } from '@/components/SessionContextProvider'; // To get auth token
+import { cn } from '@/lib/utils';
+import { useSession } from '@/components/SessionContextProvider';
 import { showError } from '@/utils/toast';
 
 // Define the comprehensive list of roles and their core keywords
@@ -385,7 +385,7 @@ const Index = () => {
   const [shortlistedCandidates, setShortlistedCandidates] = useState<Candidate[]>([]);
   const [notShortlistedCandidates, setNotShortlistedCandidates] = useState<Candidate[]>([]);
   const [processing, setProcessing] = useState<boolean>(false);
-  const { session } = useSession(); // Get session to retrieve auth token
+  const { session } = useSession();
 
   // Function to analyze candidate match based on structured data
   const analyzeCandidateMatch = (candidate: Candidate, jobDescription: string): Candidate => {
@@ -552,7 +552,7 @@ const Index = () => {
     return candidate;
   };
 
-  const handleProcessResumes = async (jobDescription: string, resumeFilesData: { fileName: string, arrayBuffer: ArrayBuffer }[]): Promise<Candidate[]> => {
+  const handleProcessResumes = async (jobDescription: string, resumeFilesData: { fileName: string, resumeText: string }[]): Promise<Candidate[]> => {
     setProcessing(true);
     const processedCandidates: Candidate[] = [];
     const authToken = session?.access_token;
@@ -565,9 +565,6 @@ const Index = () => {
 
     for (const resumeData of resumeFilesData) {
       try {
-        // Convert ArrayBuffer to Base64 string
-        const base64Resume = btoa(String.fromCharCode(...new Uint8Array(resumeData.arrayBuffer)));
-
         const response = await fetch('https://dcxzxknlizesuengfhia.supabase.co/functions/v1/parse-resume', {
           method: 'POST',
           headers: {
@@ -575,7 +572,7 @@ const Index = () => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            resumeBase64: base64Resume, // Send Base64 encoded PDF
+            resumeText: resumeData.resumeText, // The extracted text is now sent
             jobDescription: jobDescription,
             resumeFileName: resumeData.fileName,
           }),
@@ -587,11 +584,10 @@ const Index = () => {
         }
 
         const parsedData: Candidate = await response.json();
-        processedCandidates.push(analyzeCandidateMatch(parsedData, jobDescription)); // Apply scoring after parsing
+        processedCandidates.push(analyzeCandidateMatch(parsedData, jobDescription));
       } catch (error: any) {
         console.error(`Error processing ${resumeData.fileName}:`, error);
         showError(`Failed to process ${resumeData.fileName}: ${error.message}`);
-        // Add a placeholder candidate for failed parsing
         processedCandidates.push({
           id: `failed-${Date.now()}-${Math.random()}`,
           name: resumeData.fileName.split('.')[0] || 'Unknown Candidate',
@@ -600,7 +596,7 @@ const Index = () => {
           experience: [{ title: 'N/A', company: 'N/A', startDate: 'N/A', endDate: 'N/A', description: ['Failed to extract data.'] }],
           education: [{ degree: 'N/A', institution: 'N/A', startDate: 'N/A', endDate: 'N/A' }],
           matchScore: 1,
-          justification: `Failed to parse resume: ${error.message}`,
+          justification: `Failed to process resume via API: ${error.message}`,
           resumeFileName: resumeData.fileName,
           suggestedRole: 'N/A',
         });
