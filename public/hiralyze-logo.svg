@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <style>
+      .icon-path {
+        stroke: hsl(120 80% 50%);
+        stroke-width: 10;
+        stroke-linecap: round;
+        fill: none;
+      }
+      .icon-dot {
+        fill: hsl(120 80% 50%);
+      }
+      .glow {
+        filter: drop-shadow(0 0 4px hsl(120 80% 50%)) drop-shadow(0 0 8px hsl(120 80% 40%));
+      }
+    </style>
+  </defs>
+  <g class="glow">
+    <path class="icon-path" d="M20 20 V 80" />
+    <path class="icon-path" d="M80 20 V 80" />
+    <path class="icon-path" d="M20 50 H 80" />
+    <circle class="icon-dot" cx="50" cy="50" r="8" />
+  </g>
+</svg>
