@@ -423,13 +423,14 @@ const splitResumeIntoSections = (text: string): { [key: string]: string } => {
 const parseSkills = (text: string): string[] => {
     if (!text) return [];
     const skills = new Set<string>();
-    const stopWords = new Set(['and', 'in', 'the', 'with', 'for', 'of', 'a', 'an', 'experience', 'projects', 'education', 'skills', 'technical', 'languages', 'tools', 'concepts', 'technologies', 'collaboration', 'vellore', 'chennai', 'tamilnadu', 'india']);
+    const stopWords = new Set(['and', 'in', 'the', 'with', 'for', 'of', 'a', 'an', 'experience', 'projects', 'education', 'skills', 'technical', 'languages', 'tools', 'concepts', 'technologies', 'collaboration', 'vellore', 'chennai', 'tamilnadu', 'india', 'full-stack development', 'ai/ml', 'computer vision & audio', 'tools & collaboration', 'programming']);
     
     const cleanedText = text.replace(/•|:|\[|\]/g, ',').replace(/\(|\)/g, ',');
     
     const parts = cleanedText.split(/, |\n|; | \| /).map(s => s.trim());
     parts.forEach(part => {
-        if (part && part.length > 1 && part.length < 30 && !/^\d+$/.test(part) && !stopWords.has(part.toLowerCase())) {
+        const lowerPart = part.toLowerCase();
+        if (part && part.length > 1 && part.length < 30 && !/^\d+$/.test(part) && !stopWords.has(lowerPart) && !/cgpa|gpa|percentage/i.test(part) && !/\d{4}/.test(part)) {
             skills.add(part.replace(/[.,]$/, ''));
         }
     });
@@ -572,7 +573,7 @@ const Index = () => {
 
     if (isShortlisted) {
         let score = 5.0; // Base score for meeting the threshold
-        score += (matchPercentage - SHORTLISTING_THRESHOLD_PERCENT) / 5; // Add points for exceeding threshold
+        score += (matchPercentage - SHORTLISTING_THRESHOLD_PERCENT) / 4; // More generous score increase
         
         const relevantProjectsCount = [...candidate.experience, ...candidate.projects].filter(p => {
             const projectText = `${p.title} ${p.description.join(' ')}`.toLowerCase();
