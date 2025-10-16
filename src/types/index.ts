@@ -8,20 +8,20 @@ export interface Candidate {
   skills: string[];
   experience: ExperienceEntry[];
   education: EducationEntry[];
-  projects?: ProjectEntry[]; // Optional, as not all resumes have a dedicated project section
+  projects?: ProjectEntry[];
   matchScore: number;
   justification: string;
   resumeFileName: string;
   suggestedRole?: string;
-  ugCgpa?: number; // Added for academic criteria
+  ugCgpa?: number;
 }
 
 export interface ExperienceEntry {
   title: string;
   company: string;
   startDate: string;
-  endDate: string; // Can be "Present"
-  description: string[]; // Bullet points or summary
+  endDate: string;
+  description: string[];
 }
 
 export interface EducationEntry {
@@ -29,7 +29,8 @@ export interface EducationEntry {
   institution: string;
   startDate: string;
   endDate: string;
-  gpa?: number; // CGPA/Percentage
+  gpa?: number;
+  description?: string[]; // Added to hold raw text for analysis
 }
 
 export interface ProjectEntry {

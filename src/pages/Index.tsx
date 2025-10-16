@@ -1,13 +1,11 @@
 import React, { useState } from "react";
 import ResumeUploadForm from "@/components/ResumeUploadForm";
 import CandidateList from "@/components/CandidateList";
-import { Candidate, ExperienceEntry, EducationEntry } from "@/types"; // Import updated types
+import { Candidate, ExperienceEntry, EducationEntry, ProjectEntry } from "@/types";
 import { Separator } from "@/components/ui/separator";
 import { motion } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from '@/lib/utils';
-import { useSession } from '@/components/SessionContextProvider';
-import { showError } from '@/utils/toast';
 
 // Define the comprehensive list of roles and their core keywords
 const ROLE_KEYWORDS: { [key: string]: string[] } = {
@@ -319,7 +317,7 @@ const ROLE_KEYWORDS: { [key: string]: string[] } = {
     "SolidWorks", "CATIA", "MATLAB", "Simulink",
     "Vehicle Dynamics", "Chassis Design",
     "Thermal Systems", "CAD Modeling",
-    "Emission Standards", "ISO/TS 16949",
+    "Emission Standards", "ISO/TS 1699",
     "Prototyping", "CAM", "GD&T"
   ],
   "Quality / Maintenance Engineer": [
@@ -381,11 +379,70 @@ const ROLE_KEYWORDS: { [key: string]: string[] } = {
   ],
 };
 
+/**
+ * A client-side function to parse raw resume text into a structured Candidate object.
+ * Uses regex and section-based analysis to extract information.
+ */
+const parseResumeText = (resumeText: string, fileName: string): Omit<Candidate, 'matchScore' | 'justification' | 'suggestedRole'> => {
+    const lines = resumeText.split('\n').map(line => line.trim()).filter(line => line);
+    
+    // Basic info extraction
+    const name = lines[0] || 'Unknown Candidate';
+    const email = resumeText.match(/[\w.-]+@[\w.-]+\.\w+/)?.[0] || 'N/A';
+    const phone = resumeText.match(/\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/)?.[0];
+    const linkedin = resumeText.match(/linkedin\.com\/in\/[\w-]+/)?.[0];
+    const github = resumeText.match(/github\.com\/[\w-]+/)?.[0];
+
+    // Helper to find sections and their content
+    const getSectionContent = (sectionKeywords: string[]): string[] => {
+        const textLower = resumeText.toLowerCase();
+        let startIndex = -1;
+        for (const keyword of sectionKeywords) {
+            startIndex = textLower.indexOf(keyword.toLowerCase());
+            if (startIndex !== -1) break;
+        }
+        if (startIndex === -1) return [];
+
+        const nextSectionKeywords = [
+            "experience", "work history", "education", "skills", "projects", 
+            "technical skills", "certifications", "awards", "languages"
+        ];
+        let endIndex = resumeText.length;
+        const remainingText = textLower.substring(startIndex + sectionKeywords[0].length);
+        
+        for (const keyword of nextSectionKeywords) {
+            const nextIndex = remainingText.indexOf(keyword.toLowerCase());
+            if (nextIndex !== -1 && (endIndex === resumeText.length || (startIndex + sectionKeywords[0].length + nextIndex) < endIndex)) {
+                endIndex = startIndex + sectionKeywords[0].length + nextIndex;
+            }
+        }
+        
+        return resumeText.substring(startIndex, endIndex).split('\n').slice(1).map(s => s.trim()).filter(Boolean);
+    };
+
+    // Parsing sections
+    const skills = getSectionContent(["Skills", "Technical Skills", "Proficiencies"]).join(' ').split(/,|\s{2,}|•|\*|\-/).map(s => s.trim()).filter(s => s && s.length > 1);
+    const experienceContent = getSectionContent(["Experience", "Work History"]);
+    const educationContent = getSectionContent(["Education"]);
+    const projectsContent = getSectionContent(["Projects"]);
+
+    // Basic parsing for complex sections (can be improved with more specific regex)
+    const experience: ExperienceEntry[] = experienceContent.length > 0 ? [{ title: 'Experience Details', company: 'N/A', startDate: 'N/A', endDate: 'N/A', description: experienceContent }] : [];
+    const education: EducationEntry[] = educationContent.length > 0 ? [{ degree: 'Education Details', institution: 'N/A', startDate: 'N/A', endDate: 'N/A', gpa: parseFloat(educationContent.join(' ').match(/(?:gpa|cgpa):\s*(\d\.\d+)/i)?.[1] || '0') || undefined, description: educationContent }] : [];
+    const projects: ProjectEntry[] = projectsContent.length > 0 ? [{ title: 'Project Details', description: projectsContent.join(' '), technologies: [] }] : [];
+
+    return {
+        id: `client-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        name, email, phone, linkedin, github, skills, experience, education, projects,
+        resumeFileName: fileName,
+    };
+};
+
+
 const Index = () => {
   const [shortlistedCandidates, setShortlistedCandidates] = useState<Candidate[]>([]);
   const [notShortlistedCandidates, setNotShortlistedCandidates] = useState<Candidate[]>([]);
   const [processing, setProcessing] = useState<boolean>(false);
-  const { session } = useSession();
 
   // Function to analyze candidate match based on structured data
   const analyzeCandidateMatch = (candidate: Candidate, jobDescription: string): Candidate => {
@@ -397,7 +454,7 @@ const Index = () => {
     const jobDescriptionLower = jobDescription.toLowerCase();
     const candidateSkillsLower = candidate.skills.map(s => s.toLowerCase());
     const candidateExperienceLower = candidate.experience.flatMap(e => [e.title, e.company, ...e.description]).map(s => s.toLowerCase());
-    const candidateEducationLower = candidate.education.flatMap(e => [e.degree, e.institution]).map(s => s.toLowerCase());
+    const candidateEducationLower = candidate.education.flatMap(e => [e.degree, e.institution, ...(e.description || [])]).map(s => s.toLowerCase());
 
     // --- JD Parsing and Criteria Extraction ---
     let jdPrimaryRole: string | undefined;
@@ -418,8 +475,7 @@ const Index = () => {
     
     const jdKeywordsToMatch = new Set<string>([...jdPrimaryRoleKeywords, ...explicitKeywords]);
     
-    // Fallback: If no primary role or explicit keywords, try to infer from general JD content
-    if (!jdPrimaryRole && jdKeywordsToMatch.size < 5) { // If very few keywords found
+    if (!jdPrimaryRole && jdKeywordsToMatch.size < 5) {
         const allRoleKeywordsFlat = Object.values(ROLE_KEYWORDS).flat().map(k => k.toLowerCase());
         allRoleKeywordsFlat.forEach(keyword => {
             if (new RegExp(`\\b${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(jobDescriptionLower)) {
@@ -446,7 +502,6 @@ const Index = () => {
             if (candidateSkillsLower.includes(keyword) || candidateExperienceLower.some(exp => exp.includes(keyword))) matchedJdKeywordsCount++;
         });
 
-        // Shortlisting criteria: minimum 10 keywords
         if (matchedJdKeywordsCount < 10) { 
             isShortlisted = false;
             justification = `Candidate is not shortlisted. Only ${matchedJdKeywordsCount} out of ${finalJdKeywords.length} key skills/keywords from the job description were found in the resume. A minimum of 10 keywords are required for shortlisting.`;
@@ -456,7 +511,6 @@ const Index = () => {
         }
     }
 
-    // The following checks for education and experience are now conditional based on JD requirements
     if (jdCriteria.minUGCGPA > 0) {
         const candidateUGCGPA = candidate.education.find(edu => edu.degree.toLowerCase().includes("bachelor") || edu.degree.toLowerCase().includes("ug"))?.gpa || 0;
         if (candidateUGCGPA === 0) {
@@ -470,7 +524,7 @@ const Index = () => {
         } else {
             scoreReasoning.push(`UG CGPA (${candidateUGCGPA}) meets requirement.`);
         }
-        candidate.ugCgpa = candidateUGCGPA; // Store for display
+        candidate.ugCgpa = candidateUGCGPA;
     }
 
     const hasProfessionalExperience = candidate.experience.some(exp => !exp.title.toLowerCase().includes("project") && !exp.title.toLowerCase().includes("academic"));
@@ -486,49 +540,34 @@ const Index = () => {
         scoreReasoning.push(`Professional experience identified.`);
     }
 
-
-    // --- Scoring Logic (if still shortlisted) ---
     if (isShortlisted) {
-        matchScore = 5; // Base score for being shortlisted
-
-        // Points for JD keyword match
+        matchScore = 5;
         let matchedJdKeywordsCount = 0;
         finalJdKeywords.forEach(keyword => {
             if (candidateSkillsLower.includes(keyword) || candidateExperienceLower.some(exp => exp.includes(keyword))) matchedJdKeywordsCount++;
         });
-        matchScore += Math.min(3, Math.floor(matchedJdKeywordsCount / Math.max(1, finalJdKeywords.length) * 5)); // Up to +3 points for keyword density
+        matchScore += Math.min(3, Math.floor(matchedJdKeywordsCount / Math.max(1, finalJdKeywords.length) * 5));
 
-        // Points for relevant experience/projects
         let relevantExperienceCount = 0;
         candidate.experience.forEach(expEntry => {
             const expLower = `${expEntry.title} ${expEntry.company} ${expEntry.description.join(' ')}`.toLowerCase();
-            if (finalJdKeywords.some(keyword => expLower.includes(keyword))) {
-                relevantExperienceCount++;
-            }
+            if (finalJdKeywords.some(keyword => expLower.includes(keyword))) relevantExperienceCount++;
         });
         candidate.projects?.forEach(projEntry => {
             const projLower = `${projEntry.title} ${projEntry.description} ${projEntry.technologies?.join(' ')}`.toLowerCase();
-            if (finalJdKeywords.some(keyword => projLower.includes(keyword))) {
-                relevantExperienceCount++;
-            }
+            if (finalJdKeywords.some(keyword => projLower.includes(keyword))) relevantExperienceCount++;
         });
-        matchScore += Math.min(2, Math.floor(relevantExperienceCount / Math.max(1, candidate.experience.length + (candidate.projects?.length || 0)) * 3)); // Up to +2 points
+        matchScore += Math.min(2, Math.floor(relevantExperienceCount / Math.max(1, candidate.experience.length + (candidate.projects?.length || 0)) * 3));
 
-        // Points for academic performance (if relevant)
-        if (jdCriteria.minUGCGPA > 0 && (candidate.ugCgpa || 0) >= jdCriteria.minUGCGPA) {
-            matchScore += 1; // +1 point for meeting CGPA
-        }
+        if (jdCriteria.minUGCGPA > 0 && (candidate.ugCgpa || 0) >= jdCriteria.minUGCGPA) matchScore += 1;
 
-        // Cap score between 1 and 10
         matchScore = Math.min(10, Math.max(1, matchScore));
         justification = `This candidate received a score of ${matchScore}/10. Reasoning: ${scoreReasoning.join(" ")}.`;
     } else {
-        // If not shortlisted, ensure score is 1 and justification is set
         matchScore = 1;
         if (!justification) justification = "Candidate did not meet the minimum shortlisting criteria.";
     }
     
-    // --- Suggested Role ---
     let bestRoleMatchCount = 0;
     let potentialSuggestedRole = "Generalist / Entry-Level";
     const allCandidateKeywords = new Set([...candidateSkillsLower, ...candidateExperienceLower, ...candidateEducationLower]);
@@ -536,9 +575,7 @@ const Index = () => {
     for (const role in ROLE_KEYWORDS) {
         let currentRoleMatchCount = 0;
         ROLE_KEYWORDS[role].forEach(keyword => {
-            if (allCandidateKeywords.has(keyword.toLowerCase())) {
-                currentRoleMatchCount++;
-            }
+            if (allCandidateKeywords.has(keyword.toLowerCase())) currentRoleMatchCount++;
         });
         if (currentRoleMatchCount > bestRoleMatchCount) {
             bestRoleMatchCount = currentRoleMatchCount;
@@ -554,57 +591,24 @@ const Index = () => {
 
   const handleProcessResumes = async (jobDescription: string, resumeFilesData: { fileName: string, resumeText: string }[]): Promise<Candidate[]> => {
     setProcessing(true);
-    const processedCandidates: Candidate[] = [];
-    const authToken = session?.access_token;
+    
+    const processedCandidates = resumeFilesData.map(resumeData => {
+        // Step 1: Basic parsing from raw text into a structured object
+        const parsedData = parseResumeText(resumeData.resumeText, resumeData.fileName);
+        
+        const candidateForAnalysis: Candidate = {
+            ...parsedData,
+            matchScore: 0,
+            justification: '',
+        };
 
-    if (!authToken) {
-      showError("Authentication token not found. Please log in again.");
-      setProcessing(false);
-      return [];
-    }
+        // Step 2: Analyze the parsed data against the JD
+        return analyzeCandidateMatch(candidateForAnalysis, jobDescription);
+    });
 
-    for (const resumeData of resumeFilesData) {
-      try {
-        const response = await fetch('https://dcxzxknlizesuengfhia.supabase.co/functions/v1/parse-resume', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${authToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            resumeText: resumeData.resumeText, // The extracted text is now sent
-            jobDescription: jobDescription,
-            resumeFileName: resumeData.fileName,
-          }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(`Failed to parse resume ${resumeData.fileName}: ${errorData.error || response.statusText}`);
-        }
-
-        const parsedData: Candidate = await response.json();
-        processedCandidates.push(analyzeCandidateMatch(parsedData, jobDescription));
-      } catch (error: any) {
-        console.error(`Error processing ${resumeData.fileName}:`, error);
-        showError(`Failed to process ${resumeData.fileName}: ${error.message}`);
-        processedCandidates.push({
-          id: `failed-${Date.now()}-${Math.random()}`,
-          name: resumeData.fileName.split('.')[0] || 'Unknown Candidate',
-          email: 'N/A',
-          skills: ['Parsing Failed'],
-          experience: [{ title: 'N/A', company: 'N/A', startDate: 'N/A', endDate: 'N/A', description: ['Failed to extract data.'] }],
-          education: [{ degree: 'N/A', institution: 'N/A', startDate: 'N/A', endDate: 'N/A' }],
-          matchScore: 1,
-          justification: `Failed to process resume via API: ${error.message}`,
-          resumeFileName: resumeData.fileName,
-          suggestedRole: 'N/A',
-        });
-      }
-    }
-
-    setShortlistedCandidates(processedCandidates.filter(candidate => candidate.matchScore > 1));
-    setNotShortlistedCandidates(processedCandidates.filter(candidate => candidate.matchScore === 1));
+    setShortlistedCandidates(processedCandidates.filter(c => c.matchScore > 1));
+    setNotShortlistedCandidates(processedCandidates.filter(c => c.matchScore === 1));
+    
     setProcessing(false);
     return processedCandidates;
   };
