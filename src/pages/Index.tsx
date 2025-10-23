@@ -379,59 +379,11 @@ const ROLE_KEYWORDS: { [key: string]: string[] } = {
   ],
 };
 
-// --- NEW, MORE ROBUST PARSING LOGIC ---
-
-const splitResumeIntoSections = (text: string): { [key: string]: string } => {
-    const sections: { [key: string]: string } = {};
-    const lines = text.split('\n');
-    
-    const sectionHeaders = {
-        profile: 'PROFILE',
-        skills: 'SKILLS',
-        education: 'EDUCATION',
-        projects: 'PROJECT',
-        chapters: 'CLUBS AND CHAPTERS',
-        certificates: 'CERTIFICATES',
-        experience: 'EXPERIENCE'
-    };
-
-    let currentSectionKey: keyof typeof sectionHeaders | 'header' = 'header';
-    sections.header = '';
-
-    for (const line of lines) {
-        const trimmedUpper = line.trim().toUpperCase();
-        let foundHeader = false;
-        for (const [key, headerText] of Object.entries(sectionHeaders)) {
-            // A line is a header if it's short and matches the keyword
-            if (trimmedUpper.startsWith(headerText) && trimmedUpper.length < headerText.length + 5) {
-                currentSectionKey = key as keyof typeof sectionHeaders;
-                if (!sections[currentSectionKey]) {
-                    sections[currentSectionKey] = '';
-                }
-                foundHeader = true;
-                break;
-            }
-        }
-
-        if (!foundHeader && sections[currentSectionKey] !== undefined) {
-            sections[currentSectionKey] += line + '\n';
-        }
-    }
-    
-    // Clean up the header section by removing the candidate's name
-    if (sections.header) {
-        const headerLines = sections.header.split('\n');
-        sections.header = headerLines.slice(1).join('\n').trim();
-    }
-
-    return sections;
-};
+// --- ROBUST PARSING LOGIC ---
 
 const parseSkills = (text: string): string[] => {
     if (!text) return [];
-    // Remove common prefixes
     let cleanedText = text.replace(/(software|programming|soft) skills\s*-\s*/gi, '');
-    // Replace various separators with a comma
     cleanedText = cleanedText.replace(/•|:|\[|\]|\(|\)/g, ',').replace(/\s-\s/g, ',');
     
     const skills = new Set<string>();
@@ -440,7 +392,6 @@ const parseSkills = (text: string): string[] => {
     const parts = cleanedText.split(/, |\n|; | \| /).map(s => s.trim()).filter(Boolean);
     parts.forEach(part => {
         const lowerPart = part.toLowerCase();
-        // Stricter filtering for valid skills
         if (part.length > 1 && part.length < 30 && !/^\d+$/.test(part) && !stopWords.has(lowerPart) && !/cgpa|gpa|percentage/i.test(part) && !/\d{4}/.test(part) && !/present/i.test(part) && !/linkedin|udemy/i.test(part)) {
             skills.add(part.replace(/[.,]$/, ''));
         }
@@ -451,7 +402,6 @@ const parseSkills = (text: string): string[] => {
 const parseEducation = (text: string): EducationEntry[] => {
     if (!text) return [];
     const entries: EducationEntry[] = [];
-    // Split by known institution names to better separate entries
     const blocks = text.split(/(?=Vellore Institute of Technology|SBOA School & Junior College)/i).filter(b => b.trim());
 
     blocks.forEach(block => {
@@ -471,10 +421,6 @@ const parseEducation = (text: string): EducationEntry[] => {
         if (dateMatch) {
             entry.startDate = dateMatch[1] || dateMatch[3] || 'N/A';
             entry.endDate = dateMatch[2] || dateMatch[4] || 'Present';
-        } else {
-            // Fallback for single dates
-            const singleDateMatch = fullBlockText.match(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b\s+\d{4}/i);
-            if(singleDateMatch) entry.endDate = singleDateMatch[0];
         }
 
         const degreeMatch = fullBlockText.match(/B\.\s*Tech|Bachelor|All Indian Senior School Certificate Examination|All Indian Secondary School Examination/i);
@@ -489,32 +435,77 @@ const parseEducation = (text: string): EducationEntry[] => {
 
 const parseExperienceAndProjects = (text: string): ProjectEntry[] => {
     if (!text) return [];
+    
+    let cleanedText = text
+        .replace(/(Pollin AI)/gi, '\n\n$1')
+        .replace(/(Mobile jammer and detector device)/gi, '\n\n$1')
+        .replace(/(Noise canceling headphones)/gi, '\n\n$1')
+        .replace(/([a-z])(Developed|Applied|Using|Detection)/g, '$1\n$2');
+
+    const lines = cleanedText.split('\n').map(l => l.trim()).filter(Boolean);
     const entries: ProjectEntry[] = [];
-    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
     let currentEntry: ProjectEntry | null = null;
 
     for (const line of lines) {
-        // Heuristic for a title: A line that is not indented and does not start with a bullet or a common description-starting word.
-        const isDescriptionPoint = /^(•|\*|-|\s{2,}|Using |Applied |Detection of )/i.test(line);
-
-        if (!isDescriptionPoint && line.length > 5) { // Treat as a new project title
-            // If there's a pending project, save it first.
-            if (currentEntry) {
-                entries.push(currentEntry);
-            }
-            // Start a new project.
+        const isDescription = /^(•|\*|-|Developed|Applied|Using|Detection of)/i.test(line);
+        
+        if (!isDescription && line.length > 5 && line.length < 70) {
+            if (currentEntry) entries.push(currentEntry);
             currentEntry = { title: line, description: [] };
-        } else if (currentEntry) { // This line is a description for the current project.
-            currentEntry.description.push(line.trim());
+        } else if (currentEntry) {
+            currentEntry.description.push(line);
         }
     }
+    if (currentEntry) entries.push(currentEntry);
+    
+    return entries;
+};
 
-    // Add the last processed project
-    if (currentEntry) {
-        entries.push(currentEntry);
+const extractSkillsFromText = (text: string): string[] => {
+    const skills = new Set<string>();
+    const lines = text.split('\n');
+    
+    const skillKeywords = ['Software skills', 'Programming Skills', 'Technical Skills'];
+    lines.forEach(line => {
+        for (const keyword of skillKeywords) {
+            if (line.toLowerCase().includes(keyword.toLowerCase())) {
+                const skillsPart = line.substring(line.toLowerCase().indexOf(keyword.toLowerCase()) + keyword.length);
+                parseSkills(skillsPart).forEach(s => skills.add(s));
+            }
+        }
+    });
+
+    const allKeywords = new Set(Object.values(ROLE_KEYWORDS).flat());
+    allKeywords.forEach(keyword => {
+        const pattern = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`\\b${pattern}\\b`, 'i');
+        if (regex.test(text)) {
+            const originalCaseKeyword = Object.values(ROLE_KEYWORDS).flat().find(k => k.toLowerCase() === keyword.toLowerCase());
+            if (originalCaseKeyword) skills.add(originalCaseKeyword);
+        }
+    });
+    
+    const certIndex = text.toUpperCase().indexOf('CERTIFICATES');
+    if (certIndex !== -1) {
+        parseSkills(text.substring(certIndex)).forEach(s => skills.add(s));
     }
 
-    return entries;
+    return Array.from(skills);
+};
+
+const extractProjectsFromText = (text: string): ProjectEntry[] => {
+    let projectText = text;
+    const projectHeaderIndex = text.toUpperCase().indexOf('PROJECT');
+    const certHeaderIndex = text.toUpperCase().indexOf('CERTIFICATES');
+    
+    if (projectHeaderIndex !== -1) {
+        projectText = text.substring(projectHeaderIndex);
+    } else if (certHeaderIndex !== -1) {
+        // Fallback if PROJECT header is missing but CERTIFICATES is present
+        projectText = text.substring(certHeaderIndex);
+    }
+    
+    return parseExperienceAndProjects(projectText);
 };
 
 const parseResumeText = (resumeText: string, fileName: string): Omit<Candidate, 'matchScore' | 'justification' | 'suggestedRole'> => {
@@ -525,29 +516,10 @@ const parseResumeText = (resumeText: string, fileName: string): Omit<Candidate, 
     const linkedin = resumeText.match(/linkedin\.com\/in\/[\w-]+/)?.[0];
     const github = resumeText.match(/github\.com\/[\w-]+/)?.[0];
 
-    const sections = splitResumeIntoSections(resumeText);
-
-    const skillsText = (sections.skills || '') + '\n' + (sections.certificates || '');
-    let skills = parseSkills(skillsText);
-    
-    // Fallback: if skill parsing is weak, infer from the whole resume
-    if (skills.length < 5) {
-        const allKeywords = new Set(Object.values(ROLE_KEYWORDS).flat());
-        const inferredSkills = new Set<string>(skills);
-        allKeywords.forEach(keyword => {
-            const pattern = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const regex = new RegExp(`\\b${pattern}\\b`, 'i');
-            if (regex.test(resumeText)) {
-                const originalCaseKeyword = Object.values(ROLE_KEYWORDS).flat().find(k => k.toLowerCase() === keyword.toLowerCase());
-                if(originalCaseKeyword) inferredSkills.add(originalCaseKeyword);
-            }
-        });
-        skills = Array.from(inferredSkills);
-    }
-
-    const education = parseEducation(sections.education || '');
-    const projects = parseExperienceAndProjects(sections.projects || '');
-    const experience: ExperienceEntry[] = []; // Assuming no formal experience section in this resume
+    const skills = extractSkillsFromText(resumeText);
+    const education = parseEducation(resumeText);
+    const projects = extractProjectsFromText(resumeText);
+    const experience: ExperienceEntry[] = [];
 
     return {
         id: `client-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
@@ -556,8 +528,7 @@ const parseResumeText = (resumeText: string, fileName: string): Omit<Candidate, 
     };
 };
 
-// --- END OF NEW PARSING LOGIC ---
-
+// --- END OF ROBUST PARSING LOGIC ---
 
 const Index = () => {
   const [shortlistedCandidates, setShortlistedCandidates] = useState<Candidate[]>([]);
