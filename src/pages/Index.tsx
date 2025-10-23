@@ -402,7 +402,8 @@ const splitResumeIntoSections = (text: string): { [key: string]: string } => {
         const trimmedUpper = line.trim().toUpperCase();
         let foundHeader = false;
         for (const [key, headerText] of Object.entries(sectionHeaders)) {
-            if (trimmedUpper.startsWith(headerText)) {
+            // A line is a header if it's short and matches the keyword
+            if (trimmedUpper.startsWith(headerText) && trimmedUpper.length < headerText.length + 5) {
                 currentSectionKey = key as keyof typeof sectionHeaders;
                 if (!sections[currentSectionKey]) {
                     sections[currentSectionKey] = '';
@@ -412,13 +413,12 @@ const splitResumeIntoSections = (text: string): { [key: string]: string } => {
             }
         }
 
-        if (!foundHeader) {
-            if (sections[currentSectionKey] !== undefined) {
-                 sections[currentSectionKey] += line + '\n';
-            }
+        if (!foundHeader && sections[currentSectionKey] !== undefined) {
+            sections[currentSectionKey] += line + '\n';
         }
     }
     
+    // Clean up the header section by removing the candidate's name
     if (sections.header) {
         const headerLines = sections.header.split('\n');
         sections.header = headerLines.slice(1).join('\n').trim();
@@ -429,16 +429,19 @@ const splitResumeIntoSections = (text: string): { [key: string]: string } => {
 
 const parseSkills = (text: string): string[] => {
     if (!text) return [];
+    // Remove common prefixes
     let cleanedText = text.replace(/(software|programming|soft) skills\s*-\s*/gi, '');
-    cleanedText = cleanedText.replace(/•|:|\[|\]/g, ',').replace(/\s-\s/g, ',').replace(/\(|\)/g, ',');
+    // Replace various separators with a comma
+    cleanedText = cleanedText.replace(/•|:|\[|\]|\(|\)/g, ',').replace(/\s-\s/g, ',');
     
     const skills = new Set<string>();
     const stopWords = new Set(['and', 'in', 'the', 'with', 'for', 'of', 'a', 'an', 'experience', 'projects', 'education', 'skills', 'technical', 'languages', 'tools', 'concepts', 'technologies', 'collaboration', 'vellore', 'chennai', 'tamilnadu', 'india', 'b. tech', 'cgpa', 'percentage', 'school', 'college', 'university', 'institute', 'grade', 'certificates', 'foundations', 'project management', 'team work', 'communication', 'leadership']);
     
-    const parts = cleanedText.split(/, |\n|; | \| /).map(s => s.trim());
+    const parts = cleanedText.split(/, |\n|; | \| /).map(s => s.trim()).filter(Boolean);
     parts.forEach(part => {
         const lowerPart = part.toLowerCase();
-        if (part && part.length > 1 && part.length < 30 && !/^\d+$/.test(part) && !stopWords.has(lowerPart) && !/cgpa|gpa|percentage/i.test(part) && !/\d{4}/.test(part) && !/present/i.test(part) && !/linkedin|udemy/i.test(part)) {
+        // Stricter filtering for valid skills
+        if (part.length > 1 && part.length < 30 && !/^\d+$/.test(part) && !stopWords.has(lowerPart) && !/cgpa|gpa|percentage/i.test(part) && !/\d{4}/.test(part) && !/present/i.test(part) && !/linkedin|udemy/i.test(part)) {
             skills.add(part.replace(/[.,]$/, ''));
         }
     });
@@ -448,6 +451,7 @@ const parseSkills = (text: string): string[] => {
 const parseEducation = (text: string): EducationEntry[] => {
     if (!text) return [];
     const entries: EducationEntry[] = [];
+    // Split by known institution names to better separate entries
     const blocks = text.split(/(?=Vellore Institute of Technology|SBOA School & Junior College)/i).filter(b => b.trim());
 
     blocks.forEach(block => {
@@ -468,8 +472,9 @@ const parseEducation = (text: string): EducationEntry[] => {
             entry.startDate = dateMatch[1] || dateMatch[3] || 'N/A';
             entry.endDate = dateMatch[2] || dateMatch[4] || 'Present';
         } else {
-            const singleDateMatch = fullBlockText.match(/(\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b\s*-\s*\d{4}|\bMay\s+\d{4}\b)/i);
-            if(singleDateMatch) entry.endDate = singleDateMatch[0].replace(' - ', ' ');
+            // Fallback for single dates
+            const singleDateMatch = fullBlockText.match(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b\s+\d{4}/i);
+            if(singleDateMatch) entry.endDate = singleDateMatch[0];
         }
 
         const degreeMatch = fullBlockText.match(/B\.\s*Tech|Bachelor|All Indian Senior School Certificate Examination|All Indian Secondary School Examination/i);
@@ -485,31 +490,22 @@ const parseEducation = (text: string): EducationEntry[] => {
 const parseExperienceAndProjects = (text: string): ProjectEntry[] => {
     if (!text) return [];
     const entries: ProjectEntry[] = [];
-    const lines = text.split('\n').filter(Boolean);
-    
-    let currentEntry: ProjectEntry | null = null;
+    // Split by one or more blank lines to identify separate project blocks
+    const blocks = text.split(/\n\s*\n+/).filter(b => b.trim());
 
-    for (const line of lines) {
-        const trimmedLine = line.trim();
-        const isTitle = !/^[•*-]/.test(trimmedLine) && !/^(using|applied)/i.test(trimmedLine) && trimmedLine.length < 100 && isNaN(parseInt(trimmedLine[0]));
+    blocks.forEach(block => {
+        const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+        if (lines.length === 0) return;
 
-        if (isTitle) {
-            if (currentEntry) {
-                entries.push(currentEntry);
-            }
-            currentEntry = {
-                title: trimmedLine,
-                description: [],
-            };
-        } else if (currentEntry) {
-            currentEntry.description.push(trimmedLine.replace(/^[•*-]\s*/, ''));
+        // The first line is the title
+        const title = lines[0];
+        // The rest are description points
+        const description = lines.slice(1);
+
+        if (title) {
+            entries.push({ title, description });
         }
-    }
-
-    if (currentEntry) {
-        entries.push(currentEntry);
-    }
-
+    });
     return entries;
 };
 
@@ -526,6 +522,7 @@ const parseResumeText = (resumeText: string, fileName: string): Omit<Candidate, 
     const skillsText = (sections.skills || '') + '\n' + (sections.certificates || '');
     let skills = parseSkills(skillsText);
     
+    // Fallback: if skill parsing is weak, infer from the whole resume
     if (skills.length < 5) {
         const allKeywords = new Set(Object.values(ROLE_KEYWORDS).flat());
         const inferredSkills = new Set<string>(skills);
@@ -542,7 +539,7 @@ const parseResumeText = (resumeText: string, fileName: string): Omit<Candidate, 
 
     const education = parseEducation(sections.education || '');
     const projects = parseExperienceAndProjects(sections.projects || '');
-    const experience: ExperienceEntry[] = [];
+    const experience: ExperienceEntry[] = []; // Assuming no formal experience section in this resume
 
     return {
         id: `client-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
