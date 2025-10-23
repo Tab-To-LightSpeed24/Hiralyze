@@ -381,6 +381,47 @@ const ROLE_KEYWORDS: { [key: string]: string[] } = {
 
 // --- ROBUST PARSING LOGIC ---
 
+const findSections = (text: string): { [key: string]: string } => {
+    const sectionHeaders = [
+        'PROFILE', 'SKILLS', 'EDUCATION', 'PROJECT', 'PROJECTS', 'EXPERIENCE', 
+        'CLUBS AND CHAPTERS', 'CERTIFICATES', 'PROJECTS & CONTESTS'
+    ];
+    const sections: { header: string, index: number, key: string }[] = [];
+    const lines = text.split('\n');
+
+    lines.forEach((line) => {
+        const upperLine = line.trim().toUpperCase();
+        for (const header of sectionHeaders) {
+            if (upperLine.startsWith(header) && upperLine.length < header.length + 10) {
+                sections.push({ 
+                    header: header, 
+                    index: text.indexOf(line),
+                    key: header.toLowerCase().replace(/ & /g, '_and_').replace(/s$/, '')
+                });
+                break;
+            }
+        }
+    });
+
+    sections.sort((a, b) => a.index - b.index);
+
+    const sectionContent: { [key: string]: string } = {};
+    for (let i = 0; i < sections.length; i++) {
+        const currentSection = sections[i];
+        const nextSection = sections[i + 1];
+        const start = currentSection.index;
+        const end = nextSection ? nextSection.index : text.length;
+        const content = text.substring(start, end);
+        
+        if (sectionContent[currentSection.key]) {
+            sectionContent[currentSection.key] += '\n' + content;
+        } else {
+            sectionContent[currentSection.key] = content;
+        }
+    }
+    return sectionContent;
+}
+
 const parseSkills = (text: string): string[] => {
     if (!text) return [];
     let cleanedText = text.replace(/(software|programming|soft) skills\s*-\s*/gi, '');
@@ -435,77 +476,58 @@ const parseEducation = (text: string): EducationEntry[] => {
 
 const parseExperienceAndProjects = (text: string): ProjectEntry[] => {
     if (!text) return [];
-    
-    let cleanedText = text
-        .replace(/(Pollin AI)/gi, '\n\n$1')
-        .replace(/(Mobile jammer and detector device)/gi, '\n\n$1')
-        .replace(/(Noise canceling headphones)/gi, '\n\n$1')
-        .replace(/([a-z])(Developed|Applied|Using|Detection)/g, '$1\n$2');
 
-    const lines = cleanedText.split('\n').map(l => l.trim()).filter(Boolean);
     const entries: ProjectEntry[] = [];
+    const contentText = text.replace(/^(PROFILE|SKILLS|EDUCATION|PROJECTS?|EXPERIENCE|CLUBS AND CHAPTERS|CERTIFICATES|PROJECTS & CONTESTS)\s*$/gim, '');
+    
+    const lines = contentText.split('\n').map(l => l.trim()).filter(l => l.length > 1 && l !== '•' && l !== '-');
+
     let currentEntry: ProjectEntry | null = null;
 
     for (const line of lines) {
-        const isDescription = /^(•|\*|-|Developed|Applied|Using|Detection of)/i.test(line);
-        
-        if (!isDescription && line.length > 5 && line.length < 70) {
-            if (currentEntry) entries.push(currentEntry);
-            currentEntry = { title: line, description: [] };
-        } else if (currentEntry) {
-            currentEntry.description.push(line);
-        }
-    }
-    if (currentEntry) entries.push(currentEntry);
-    
-    return entries;
-};
+        const isDescriptionPoint = /^(•|\*|-|Developed|Managed|Created|Led|Implemented|Designed|Analyzed|Simulated|Trained|Operated|Ideated|CAD Modeled|Using |Applied )/i.test(line);
 
-const extractSkillsFromText = (text: string): string[] => {
-    const skills = new Set<string>();
-    const lines = text.split('\n');
-    
-    const skillKeywords = ['Software skills', 'Programming Skills', 'Technical Skills'];
-    lines.forEach(line => {
-        for (const keyword of skillKeywords) {
-            if (line.toLowerCase().includes(keyword.toLowerCase())) {
-                const skillsPart = line.substring(line.toLowerCase().indexOf(keyword.toLowerCase()) + keyword.length);
-                parseSkills(skillsPart).forEach(s => skills.add(s));
+        if (!isDescriptionPoint && line.length > 3 && line.toUpperCase() !== line) {
+            if (currentEntry) {
+                entries.push(currentEntry);
+            }
+            currentEntry = { title: line, description: [] };
+        } else if (currentEntry && isDescriptionPoint) {
+            const cleanedLine = line.replace(/^(•|\*|-)\s*/, '').trim();
+            if (cleanedLine) {
+                currentEntry.description.push(cleanedLine);
             }
         }
-    });
+    }
 
-    const allKeywords = new Set(Object.values(ROLE_KEYWORDS).flat());
-    allKeywords.forEach(keyword => {
-        const pattern = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const regex = new RegExp(`\\b${pattern}\\b`, 'i');
-        if (regex.test(text)) {
-            const originalCaseKeyword = Object.values(ROLE_KEYWORDS).flat().find(k => k.toLowerCase() === keyword.toLowerCase());
-            if (originalCaseKeyword) skills.add(originalCaseKeyword);
+    if (currentEntry) {
+        entries.push(currentEntry);
+    }
+
+    entries.forEach(entry => {
+        if (entry.description.length > 1) {
+            const mergedDescription: string[] = [];
+            let currentPoint = '';
+            entry.description.forEach(descLine => {
+                if (currentPoint === '') {
+                    currentPoint = descLine;
+                } else {
+                    if (!/[.?!;]$/.test(currentPoint) && /^[a-z]/.test(descLine)) {
+                        currentPoint += ' ' + descLine;
+                    } else {
+                        mergedDescription.push(currentPoint);
+                        currentPoint = descLine;
+                    }
+                }
+            });
+            if (currentPoint) {
+                mergedDescription.push(currentPoint);
+            }
+            entry.description = mergedDescription;
         }
     });
-    
-    const certIndex = text.toUpperCase().indexOf('CERTIFICATES');
-    if (certIndex !== -1) {
-        parseSkills(text.substring(certIndex)).forEach(s => skills.add(s));
-    }
 
-    return Array.from(skills);
-};
-
-const extractProjectsFromText = (text: string): ProjectEntry[] => {
-    let projectText = text;
-    const projectHeaderIndex = text.toUpperCase().indexOf('PROJECT');
-    const certHeaderIndex = text.toUpperCase().indexOf('CERTIFICATES');
-    
-    if (projectHeaderIndex !== -1) {
-        projectText = text.substring(projectHeaderIndex);
-    } else if (certHeaderIndex !== -1) {
-        // Fallback if PROJECT header is missing but CERTIFICATES is present
-        projectText = text.substring(certHeaderIndex);
-    }
-    
-    return parseExperienceAndProjects(projectText);
+    return entries.filter(e => e.description.length > 0 || e.title.length > 5);
 };
 
 const parseResumeText = (resumeText: string, fileName: string): Omit<Candidate, 'matchScore' | 'justification' | 'suggestedRole'> => {
@@ -516,9 +538,32 @@ const parseResumeText = (resumeText: string, fileName: string): Omit<Candidate, 
     const linkedin = resumeText.match(/linkedin\.com\/in\/[\w-]+/)?.[0];
     const github = resumeText.match(/github\.com\/[\w-]+/)?.[0];
 
-    const skills = extractSkillsFromText(resumeText);
-    const education = parseEducation(resumeText);
-    const projects = extractProjectsFromText(resumeText);
+    const sections = findSections(resumeText);
+
+    const skillsText = (sections.skill || '') + '\n' + (sections.certificate || '');
+    let skills = parseSkills(skillsText);
+    if (skills.length < 5) {
+        const allKeywords = new Set(Object.values(ROLE_KEYWORDS).flat());
+        const inferredSkills = new Set<string>(skills);
+        allKeywords.forEach(keyword => {
+            const pattern = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`\\b${pattern}\\b`, 'i');
+            if (regex.test(resumeText)) {
+                const originalCaseKeyword = Object.values(ROLE_KEYWORDS).flat().find(k => k.toLowerCase() === keyword.toLowerCase());
+                if(originalCaseKeyword) inferredSkills.add(originalCaseKeyword);
+            }
+        });
+        skills = Array.from(inferredSkills);
+    }
+
+    const education = parseEducation(sections.education || '');
+    
+    const projectText = (sections.project || '') + (sections.projects_and_contest || '');
+    const experienceText = sections.experience || '';
+
+    const parsedEntries = parseExperienceAndProjects(projectText + '\n' + experienceText);
+    
+    const projects: ProjectEntry[] = parsedEntries;
     const experience: ExperienceEntry[] = [];
 
     return {
