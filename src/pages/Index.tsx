@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 // Define the comprehensive list of roles and their core keywords
 const ROLE_KEYWORDS: { [key: string]: string[] } = {
   "Software Developer / Software Engineer": [
-    "C", "C++", "Java", "Python", "C#", "Go", "Rust", "JavaScript", "TypeScript",
+    "C", "C++", "Java", "Python", "C#", "Go", "Rust", "JavaScript", "TypeScript", "React", "ReactJS", "HTML", "CSS",
     "Spring Boot", "Spring MVC", "Django", "Flask", "FastAPI", ".NET Core",
     "Ruby on Rails", "Express.js", "Next.js", "NestJS", "Serverless",
     "REST API", "GraphQL", "gRPC", "Microservices", "Monolith Architecture",
@@ -23,8 +23,8 @@ const ROLE_KEYWORDS: { [key: string]: string[] } = {
     "API Security", "OAuth2", "JWT", "WebSockets", "Message Queues (Kafka, RabbitMQ)"
   ],
   "Frontend Developer": [
-    "HTML5", "CSS3", "JavaScript", "TypeScript",
-    "React.js", "Vue.js", "Angular", "Svelte", "Next.js", "Nuxt.js",
+    "HTML5", "CSS3", "JavaScript", "TypeScript", "HTML", "CSS",
+    "React.js", "React", "ReactJS", "Vue.js", "Angular", "Svelte", "Next.js", "Nuxt.js",
     "Redux", "Zustand", "Context API", "MobX",
     "Tailwind CSS", "Bootstrap", "Material UI", "Chakra UI", "SCSS/SASS",
     "Webpack", "Vite", "Babel", "ES6 Modules",
@@ -52,11 +52,11 @@ const ROLE_KEYWORDS: { [key: string]: string[] } = {
     "Docker", "Kubernetes", "AWS Lambda", "ECS", "Azure Functions"
   ],
   "Full Stack Developer": [
-    "React", "Angular", "Vue.js", "Next.js",
+    "React", "Angular", "Vue.js", "Next.js", "ReactJS",
     "Node.js", "Express", "NestJS", "Django", "Flask", "Spring Boot",
     "JavaScript", "TypeScript", "Python", "Java", "C#",
     "REST APIs", "GraphQL", "WebSockets",
-    "HTML", "CSS", "SCSS", "Tailwind", "Bootstrap",
+    "HTML", "CSS", "SCSS", "Tailwind", "Bootstrap", "HTML5", "CSS3",
     "PostgreSQL", "MySQL", "MongoDB", "Redis", "Firebase",
     "JWT", "OAuth2", "Authentication & Authorization",
     "CI/CD", "GitHub Actions", "Jenkins", "GitLab CI",
@@ -490,22 +490,30 @@ const parseEducation = (text: string): EducationEntry[] => {
 const parseExperienceAndProjects = (text: string): ProjectEntry[] => {
     if (!text) return [];
     const entries: ProjectEntry[] = [];
-    // Split by one or more blank lines to identify separate project blocks
-    const blocks = text.split(/\n\s*\n+/).filter(b => b.trim());
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    let currentEntry: ProjectEntry | null = null;
 
-    blocks.forEach(block => {
-        const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
-        if (lines.length === 0) return;
+    for (const line of lines) {
+        // Heuristic for a title: A line that is not indented and does not start with a bullet or a common description-starting word.
+        const isDescriptionPoint = /^(•|\*|-|\s{2,}|Using |Applied |Detection of )/i.test(line);
 
-        // The first line is the title
-        const title = lines[0];
-        // The rest are description points
-        const description = lines.slice(1);
-
-        if (title) {
-            entries.push({ title, description });
+        if (!isDescriptionPoint && line.length > 5) { // Treat as a new project title
+            // If there's a pending project, save it first.
+            if (currentEntry) {
+                entries.push(currentEntry);
+            }
+            // Start a new project.
+            currentEntry = { title: line, description: [] };
+        } else if (currentEntry) { // This line is a description for the current project.
+            currentEntry.description.push(line.trim());
         }
-    });
+    }
+
+    // Add the last processed project
+    if (currentEntry) {
+        entries.push(currentEntry);
+    }
+
     return entries;
 };
 
