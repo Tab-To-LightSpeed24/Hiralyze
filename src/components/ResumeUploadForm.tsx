@@ -60,7 +60,7 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes })
 
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const newFiles = Array.from(e.dataTransfer.files).filter(file =>
-        file.type === 'application/pdf'
+        file.type === 'application/pdf' || file.type === 'text/plain'
       );
       setResumeFiles(prevFiles => [...prevFiles, ...newFiles]);
       e.dataTransfer.clearData();
@@ -82,22 +82,23 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes })
     try {
       const resumeFilesData: ResumeFileWithData[] = [];
       for (const file of resumeFiles) {
-        const arrayBuffer = await file.arrayBuffer();
-        
-        // --- CLIENT-SIDE PDF PARSING ---
-        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-        const pdf = await loadingTask.promise;
         let text = '';
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const textContent = await page.getTextContent();
-          // This now joins with a newline to preserve the resume's structure,
-          // which is critical for the parsing logic to work correctly.
-          text += textContent.items.map((item: any) => item.str).join('\n') + '\n';
+        if (file.type === 'application/pdf') {
+          const arrayBuffer = await file.arrayBuffer();
+          const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+          const pdf = await loadingTask.promise;
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            text += textContent.items.map((item: any) => item.str).join('\n') + '\n';
+          }
+        } else if (file.type === 'text/plain') {
+          text = await file.text();
         }
-        // --- END PARSING ---
 
-        resumeFilesData.push({ fileName: file.name, resumeText: text });
+        if (text) {
+          resumeFilesData.push({ fileName: file.name, resumeText: text });
+        }
       }
 
       await onProcessResumes(jobDescription, resumeFilesData);
@@ -147,7 +148,7 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes })
             </motion.div>
 
             <motion.div variants={itemVariants} className="grid w-full items-center gap-1.5">
-              <Label htmlFor="resumes" className="text-primary text-neon-glow">Upload Resumes (PDF Only)</Label>
+              <Label htmlFor="resumes" className="text-primary text-neon-glow">Upload Resumes (PDF or TXT)</Label>
               <div
                 className={cn(
                   `border-2 border-dashed rounded-md p-6 text-center cursor-pointer transition-colors relative`,
@@ -166,7 +167,7 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes })
                 <Input
                   id="resumes"
                   type="file"
-                  accept=".pdf"
+                  accept=".pdf,.txt"
                   multiple
                   onChange={handleFileChange}
                   className="hidden"
