@@ -379,7 +379,7 @@ const ROLE_KEYWORDS: { [key: string]: string[] } = {
   ],
 };
 
-// --- NEW, ROBUST PARSING LOGIC ---
+// --- NEW, MORE ROBUST PARSING LOGIC ---
 
 const splitResumeIntoSections = (text: string): { [key: string]: string } => {
     const sections: { [key: string]: string } = { header: '' };
@@ -388,9 +388,9 @@ const splitResumeIntoSections = (text: string): { [key: string]: string } => {
     const headerKeywords: { [key: string]: string[] } = {
         skills: ['skills', 'proficiencies', 'technical skills', 'technical expertise'],
         experience: ['experience', 'work experience', 'employment history', 'professional experience'],
-        projects: ['projects', 'personal projects', 'academic projects'],
+        projects: ['projects', 'personal projects', 'academic projects', 'project'],
         education: ['education', 'academic background', 'academic profile'],
-        certifications: ['certifications', 'licenses & certifications', 'courses'],
+        certifications: ['certifications', 'licenses & certifications', 'courses', 'certificates'],
     };
 
     let currentSection = 'header';
@@ -400,8 +400,9 @@ const splitResumeIntoSections = (text: string): { [key: string]: string } => {
         if (!trimmedLine) continue;
 
         let foundSection: string | null = null;
-        if (trimmedLine.length < 30) {
-            const lowerLine = trimmedLine.toLowerCase().replace(/[:•]/g, '');
+        // A line is a potential header if it's short and doesn't contain sentence-like punctuation.
+        if (trimmedLine.length < 40 && !trimmedLine.includes('.')) {
+            const lowerLine = trimmedLine.toLowerCase().replace(/[:•]/g, '').trim();
             for (const [sectionName, keywords] of Object.entries(headerKeywords)) {
                 if (keywords.some(keyword => lowerLine.startsWith(keyword))) {
                     foundSection = sectionName;
@@ -414,6 +415,16 @@ const splitResumeIntoSections = (text: string): { [key: string]: string } => {
             currentSection = foundSection;
             if (!sections[currentSection]) sections[currentSection] = '';
         } else {
+            // If we are in the header and find a section-like line, switch to it
+            if (currentSection === 'header') {
+                 const lowerLine = trimmedLine.toLowerCase().replace(/[:•]/g, '').trim();
+                 for (const [sectionName, keywords] of Object.entries(headerKeywords)) {
+                    if (keywords.some(keyword => lowerLine.startsWith(keyword))) {
+                        currentSection = sectionName;
+                        break;
+                    }
+                }
+            }
             sections[currentSection] = (sections[currentSection] || '') + line + '\n';
         }
     }
@@ -423,14 +434,16 @@ const splitResumeIntoSections = (text: string): { [key: string]: string } => {
 const parseSkills = (text: string): string[] => {
     if (!text) return [];
     const skills = new Set<string>();
-    const stopWords = new Set(['and', 'in', 'the', 'with', 'for', 'of', 'a', 'an', 'experience', 'projects', 'education', 'skills', 'technical', 'languages', 'tools', 'concepts', 'technologies', 'collaboration', 'vellore', 'chennai', 'tamilnadu', 'india', 'b. tech', 'cgpa', 'percentage', 'school', 'college', 'university', 'institute', 'grade']);
+    const stopWords = new Set(['and', 'in', 'the', 'with', 'for', 'of', 'a', 'an', 'experience', 'projects', 'education', 'skills', 'technical', 'languages', 'tools', 'concepts', 'technologies', 'collaboration', 'vellore', 'chennai', 'tamilnadu', 'india', 'b. tech', 'cgpa', 'percentage', 'school', 'college', 'university', 'institute', 'grade', 'certificates', 'foundations']);
     
-    const cleanedText = text.replace(/•|:|\[|\]/g, ',').replace(/\(|\)/g, ',');
+    // Improved regex to handle various separators and clean up text
+    const cleanedText = text.replace(/•|:|\[|\]/g, ',').replace(/\s-\s/g, ',').replace(/\(|\)/g, ',');
     
     const parts = cleanedText.split(/, |\n|; | \| /).map(s => s.trim());
     parts.forEach(part => {
         const lowerPart = part.toLowerCase();
-        if (part && part.length > 1 && part.length < 30 && !/^\d+$/.test(part) && !stopWords.has(lowerPart) && !/cgpa|gpa|percentage/i.test(part) && !/\d{4}/.test(part) && !/present/i.test(part)) {
+        // More robust filtering for valid skills
+        if (part && part.length > 1 && part.length < 30 && !/^\d+$/.test(part) && !stopWords.has(lowerPart) && !/cgpa|gpa|percentage/i.test(part) && !/\d{4}/.test(part) && !/present/i.test(part) && !/linkedin|udemy/i.test(part)) {
             skills.add(part.replace(/[.,]$/, ''));
         }
     });
@@ -440,10 +453,11 @@ const parseSkills = (text: string): string[] => {
 const parseEducation = (text: string): EducationEntry[] => {
     if (!text) return [];
     const entries: EducationEntry[] = [];
-    const blocks = text.split(/\n\s*\n/).filter(b => b.trim() && /institute|university|college|school/i.test(b));
+    // Split by one or more blank lines to better separate entries
+    const blocks = text.split(/\n\s*\n/).filter(b => b.trim());
 
     blocks.forEach(block => {
-        const lines = block.split('\n').filter(l => l.trim());
+        const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
         if (lines.length === 0) return;
 
         const fullBlockText = lines.join(' ');
@@ -451,22 +465,27 @@ const parseEducation = (text: string): EducationEntry[] => {
             institution: 'N/A', degree: 'N/A', startDate: 'N/A', endDate: 'N/A', description: lines,
         };
 
-        const gpaMatch = fullBlockText.match(/(?:CGPA|gpa|percentage)[\s:]*(\d+\.?\d*)/i);
+        // More robust GPA/CGPA/Percentage matching
+        const gpaMatch = fullBlockText.match(/(?:CGPA|GPA|Percentage)[\s:-]*(\d+\.?\d*)/i);
         if (gpaMatch) entry.gpa = parseFloat(gpaMatch[1]);
 
+        // More robust date matching
         const dateMatch = fullBlockText.match(/(\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b\s+\d{4})\s*[-–—to\s]*(\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b\s+\d{4}|\bPresent\b)|(\d{4})\s*[-–—to\s]*(\d{4}|\bPresent\b)/i);
         if (dateMatch) {
             entry.startDate = dateMatch[1] || dateMatch[3] || 'N/A';
             entry.endDate = dateMatch[2] || dateMatch[4] || 'Present';
         }
 
+        // Find institution and degree more reliably
         const institutionLine = lines.find(l => /institute|university|college|school/i.test(l)) || lines[0];
         entry.institution = institutionLine.split(/,|\|/)[0].trim();
 
-        const degreeLine = lines.find(l => /b\.tech|bachelor|master|grade|examination/i.test(l)) || lines.join(' ');
+        const degreeLine = lines.find(l => /b\.tech|bachelor|master|grade|examination|engineering/i.test(l)) || lines.join(' ');
         entry.degree = degreeLine.split(/,|\|/)[0].replace(/CGPA.*/i, '').trim();
 
-        if (entry.institution !== 'N/A' && entry.degree !== 'N/A') entries.push(entry);
+        if (entry.institution !== 'N/A' || entry.degree !== 'N/A') {
+            entries.push(entry);
+        }
     });
     return entries;
 };
@@ -474,17 +493,23 @@ const parseEducation = (text: string): EducationEntry[] => {
 const parseExperienceAndProjects = (text: string): (ExperienceEntry | ProjectEntry)[] => {
     if (!text) return [];
     const entries: (ExperienceEntry | ProjectEntry)[] = [];
+    // Split by blank lines to identify separate project/experience blocks
     const blocks = text.split(/\n\s*\n+/).filter(b => b.trim());
 
     blocks.forEach(block => {
         const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
-        if (lines.length < 2) return;
+        if (lines.length === 0) return;
 
+        // Assume the first line is the title
         const title = lines[0].replace(/Link to (Github|Website)/i, '').trim();
+        // The rest are description points
         const description = lines.slice(1).map(l => l.replace(/^•\s*/, ''));
 
         if (title && description.length > 0) {
             entries.push({ title, description, company: 'N/A', startDate: 'N/A', endDate: 'N/A' });
+        } else if (title) {
+            // Handle cases where there's only a title
+            entries.push({ title, description: [], company: 'N/A', startDate: 'N/A', endDate: 'N/A' });
         }
     });
     return entries;
@@ -500,7 +525,11 @@ const parseResumeText = (resumeText: string, fileName: string): Omit<Candidate, 
 
     const sections = splitResumeIntoSections(resumeText);
 
-    let skills = parseSkills(sections.skills || '');
+    // Combine skills from the skills section and any certificates for broader coverage
+    const skillsText = (sections.skills || '') + '\n' + (sections.certifications || '');
+    let skills = parseSkills(skillsText);
+    
+    // If skill parsing is weak, infer from the whole resume as a fallback
     if (skills.length < 5) {
         const allKeywords = new Set(Object.values(ROLE_KEYWORDS).flat());
         const inferredSkills = new Set<string>(skills);
