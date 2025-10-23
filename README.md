@@ -2,8 +2,9 @@
 
 The Smart Resume Screener is an intelligent resume parsing and matching application designed to streamline the candidate screening process. It leverages a sophisticated analysis engine to parse resumes, extract key skills and experience, and match them against job descriptions to provide a compatibility score, detailed justification, and intelligent role suggestions.
 
-- **GitHub Repository:** [**Insert GitHub Repository Link Here**]
-- **Demo Video:** [**Insert 2-3 Minute Demo Video Link Here**]
+<img width="1919" height="905" alt="image" src="https://github.com/user-attachments/assets/a5b36a39-f6e6-42f6-bb47-6d959fd3d9dc" />
+
+<img width="1919" height="907" alt="image" src="https://github.com/user-attachments/assets/a5ea67d3-ab41-4c89-900e-83a97cc7fb43" />
 
 ---
 
@@ -25,11 +26,15 @@ The primary goal of the Smart Resume Screener is to intelligently and efficientl
 -   **LLM-Powered Matching:** Computes a multi-factor match score (1–10) that reflects the candidate's suitability for the role.
 -   **Candidate Shortlisting:** Displays processed candidates in clear "Shortlisted" and "Not Shortlisted" tabs, each with a concise justification for the decision and a suggested alternative role.
 
+<img width="1919" height="898" alt="image" src="https://github.com/user-attachments/assets/34ed15ed-83e0-435e-bde3-79c687d5fd5b" />
+
+<img width="1919" height="901" alt="image" src="https://github.com/user-attachments/assets/8339b255-0fef-478c-bc75-caff5282db53" />
+
 ---
 
 ## 2. Architecture & Technical Implementation
 
-This repository contains the frontend application, which demonstrates the full user experience and includes a sophisticated client-side simulation of the backend processing logic.
+
 
 ### Technology Stack
 
