@@ -130,7 +130,7 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onProcessResumes })
     >
       <NeonCard className="w-full">
         <NeonCardHeader>
-          <NeonCardTitle className="text-center">Hiralyze: Match Resumes to Jobs</NeonCardTitle>
+          <NeonCardTitle className="text-center">Smart Resume Screener: Match Resumes to Jobs</NeonCardTitle>
         </NeonCardHeader>
         <NeonCardContent>
           <form onSubmit={handleSubmit} className="space-y-6">

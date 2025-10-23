@@ -33,9 +33,9 @@ const About: React.FC = () => {
         </NeonCardHeader>
         <NeonCardContent className="space-y-6 text-muted-foreground"> {/* Use NeonCardContent */}
           <motion.section variants={itemVariants}>
-            <h3 className={cn("text-xl font-semibold mb-2 text-primary text-neon-glow")}>How Hiralyze Works</h3>
+            <h3 className={cn("text-xl font-semibold mb-2 text-primary text-neon-glow")}>How It Works</h3>
             <p>
-              Hiralyze employs a sophisticated Large Language Model (LLM) at its core to intelligently parse resumes and match them against job descriptions. Our system goes beyond simple keyword matching to understand the nuances of both the candidate's profile and the job's requirements.
+              The Smart Resume Screener employs a sophisticated Large Language Model (LLM) at its core to intelligently parse resumes and match them against job descriptions. Our system goes beyond simple keyword matching to understand the nuances of both the candidate's profile and the job's requirements.
             </p>
           </motion.section>
 
@@ -88,7 +88,7 @@ const About: React.FC = () => {
           <motion.section variants={itemVariants}>
             <h3 className={cn("text-xl font-semibold mb-2 text-primary text-neon-glow")}>Job Role Suggestions</h3>
             <p>
-              Based on the deep analysis of a candidate's resume and the broader market context (informed by internet sources), Hiralyze can suggest alternative or complementary job roles where the candidate might also excel. This feature helps both recruiters identify versatile talent and candidates discover new opportunities.
+              Based on the deep analysis of a candidate's resume and the broader market context (informed by internet sources), the system can suggest alternative or complementary job roles where the candidate might also excel. This feature helps both recruiters identify versatile talent and candidates discover new opportunities.
             </p>
           </motion.section>
         </NeonCardContent>

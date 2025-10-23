@@ -22,7 +22,7 @@ const Header: React.FC = () => {
           transition={{ delay: 0.2, duration: 0.5 }}
           className="text-3xl font-extrabold text-primary text-neon-glow tracking-wider"
         >
-          Hiralyze
+          Smart Resume Screener
         </motion.h1>
       </Link>
       <nav className="flex items-center space-x-6">

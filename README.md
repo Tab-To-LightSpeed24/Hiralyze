@@ -1,6 +1,6 @@
-# Hiralyze: Intelligent Resume Matching & Candidate Screening
+# Smart Resume Screener: Intelligent Resume Matching & Candidate Screening
 
-Hiralyze is an intelligent resume parsing and matching application designed to streamline the candidate screening process. It leverages a sophisticated analysis engine to parse resumes, extract key skills and experience, and match them against job descriptions to provide a compatibility score, detailed justification, and intelligent role suggestions.
+The Smart Resume Screener is an intelligent resume parsing and matching application designed to streamline the candidate screening process. It leverages a sophisticated analysis engine to parse resumes, extract key skills and experience, and match them against job descriptions to provide a compatibility score, detailed justification, and intelligent role suggestions.
 
 - **GitHub Repository:** [**Insert GitHub Repository Link Here**]
 - **Demo Video:** [**Insert 2-3 Minute Demo Video Link Here**]
@@ -11,7 +11,7 @@ Hiralyze is an intelligent resume parsing and matching application designed to s
 
 ### Objective
 
-The primary goal of Hiralyze is to intelligently and efficiently screen candidates by automating the comparison of resumes against job descriptions, moving beyond simple keyword matching to a deeper, semantic understanding of a candidate's profile.
+The primary goal of the Smart Resume Screener is to intelligently and efficiently screen candidates by automating the comparison of resumes against job descriptions, moving beyond simple keyword matching to a deeper, semantic understanding of a candidate's profile.
 
 ### Scope of Work
 
@@ -54,7 +54,7 @@ For this demonstration, the backend processing, data extraction, and LLM analysi
 
 ## 3. LLM Integration & Prompt Engineering
 
-The core intelligence of Hiralyze lies in its analysis engine, which is designed to function like a sophisticated Large Language Model. The logic follows a structured, multi-factor evaluation process based on the conceptual prompt below.
+The core intelligence of the Smart Resume Screener lies in its analysis engine, which is designed to function like a sophisticated Large Language Model. The logic follows a structured, multi-factor evaluation process based on the conceptual prompt below.
 
 ### Conceptual LLM Prompt Structure
 
